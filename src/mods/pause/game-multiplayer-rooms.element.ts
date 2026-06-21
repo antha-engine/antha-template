@@ -1,6 +1,10 @@
 import {nav, type NavController} from '@antha/input';
 import {type MultiplayerClientRooms} from '@antha/multiplayer-core';
-import {getObjectTypedValues, type EmptyFunction} from '@augment-vir/common';
+import {
+    ensureErrorAndPrependMessage,
+    getObjectTypedValues,
+    type EmptyFunction,
+} from '@augment-vir/common';
 import {css, defineElement, html, nothing} from 'element-vir';
 import {LoaderAnimated24Icon, lucideIcons, ViraButton, ViraColorVariant, ViraIcon} from 'vira';
 import {type FullGameState} from '../../data/game-state.js';
@@ -14,6 +18,7 @@ export const GameMultiplayerRooms = defineElement<{
         return {
             cleanup: undefined as undefined | EmptyFunction,
             rooms: undefined as undefined | MultiplayerClientRooms,
+            joinError: undefined as undefined | string,
             joiningRoom: undefined as undefined | string,
         };
     },
@@ -69,6 +74,12 @@ export const GameMultiplayerRooms = defineElement<{
             `;
         }
 
+        const errorTemplate = state.joinError
+            ? html`
+                  <p>${state.joinError}</p>
+              `
+            : nothing;
+
         const roomList = getObjectTypedValues(state.rooms)
             .filter((room) => {
                 return (
@@ -110,6 +121,7 @@ export const GameMultiplayerRooms = defineElement<{
                                         }
 
                                         updateState({
+                                            joinError: undefined,
                                             joiningRoom: room.roomName,
                                         });
 
@@ -122,6 +134,13 @@ export const GameMultiplayerRooms = defineElement<{
                                                 },
                                             );
                                             inputs.gameState.pauseMenuState = undefined;
+                                        } catch (error) {
+                                            updateState({
+                                                joinError: ensureErrorAndPrependMessage(
+                                                    error,
+                                                    'Failed to join room.',
+                                                ).message,
+                                            });
                                         } finally {
                                             updateState({
                                                 joiningRoom: undefined,
@@ -136,12 +155,14 @@ export const GameMultiplayerRooms = defineElement<{
             });
 
             return html`
+                ${errorTemplate}
                 <ul>
                     ${roomTemplates}
                 </ul>
             `;
         } else {
             return html`
+                ${errorTemplate}
                 <p>No rooms found</p>
             `;
         }

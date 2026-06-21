@@ -2,13 +2,16 @@
 import {type ClientId} from '@antha/multiplayer-core';
 import {type FrameEventDetail} from '@antha/multiplayer-p2p-lock-step';
 import {
+    awaitedBlockingMap,
     clamp,
+    getObjectTypedEntries,
+    getObjectTypedKeys,
     SeededRandom,
     type Coords,
     type MaybePromise,
     type SeededRandomState,
 } from '@augment-vir/common';
-import {playerBlobRadius, PlayerEntity} from '../entities/player.entity.js';
+import {playerBlobRadius, PlayerEntity, type playerParamsShape} from '../entities/player.entity.js';
 import {type FullGameState} from './game-state.js';
 
 export enum MultiplayerPacketType {
@@ -75,21 +78,61 @@ export const multiplayerPacketHandlers = {
         if (!state.players) {
             state.players = {};
         }
+        const players = state.players;
+        const entityStore = state.entityStore;
 
         state.seededRandom = SeededRandom.fromState(detail.packet.stateSync.randomState);
 
-        state.players[detail.packet.clientId] = {
-            entity: await state.entityStore.addEntity(
-                PlayerEntity,
-                clampPlayerPosition({
-                    position: {
-                        x: state.seededRandom.next() * state.pixi.pixiApplication.screen.width,
-                        y: state.seededRandom.next() * state.pixi.pixiApplication.screen.height,
-                    },
-                    state,
-                }),
-            ),
+        const syncedPlayerPositions: Record<
+            ClientId,
+            {
+                position: Coords;
+            }
+        > = {
+            ...detail.packet.stateSync.players,
+            [detail.packet.clientId]: {
+                position: {
+                    x: state.seededRandom.next() * state.pixi.pixiApplication.screen.width,
+                    y: state.seededRandom.next() * state.pixi.pixiApplication.screen.height,
+                },
+            },
         };
+
+        /** Clear out old players, if any. */
+        getObjectTypedKeys(state.players).forEach((clientId) => {
+            if (!syncedPlayerPositions[clientId]) {
+                players[clientId]?.entity.immediatelyDestroy();
+                delete players[clientId];
+            }
+        });
+
+        await awaitedBlockingMap(
+            getObjectTypedEntries(syncedPlayerPositions),
+            async ([
+                clientId,
+                player,
+            ]) => {
+                const position = clampPlayerPosition({
+                    position: player.position,
+                    state,
+                });
+                const params: typeof playerParamsShape.runtimeType = {
+                    ...position,
+                    clientId,
+                };
+                const existingPlayer = players[clientId];
+
+                if (existingPlayer) {
+                    existingPlayer.entity.params.x = params.x;
+                    existingPlayer.entity.params.y = params.y;
+                    existingPlayer.entity.params.clientId = params.clientId;
+                } else {
+                    players[clientId] = {
+                        entity: await entityStore.addEntity(PlayerEntity, params),
+                    };
+                }
+            },
+        );
     },
     [MultiplayerPacketType.DespawnPlayer]({detail, state}) {
         if (!state.players) {

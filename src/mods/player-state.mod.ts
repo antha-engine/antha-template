@@ -98,7 +98,10 @@ export const playerStateMod = defineAnthaMod<GameMultiplayerModState>({
             });
         }
 
-        if (!state.multiplayerP2pLockStep.multiplayerController.isConnected()) {
+        if (
+            !state.multiplayerP2pLockStep.multiplayerController.isConnected() &&
+            !state.pauseMenuState
+        ) {
             state.players = {};
             try {
                 const backendOrigin = buildUrl(globalThis.location.href, {
