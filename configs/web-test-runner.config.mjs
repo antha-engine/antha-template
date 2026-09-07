@@ -1,3 +1,4 @@
+import {pixiPlugin} from '@antha/web-test-runner-plugin-pixi';
 import {defineConfig} from '@virmator/test/configs/web-test-runner.config.base.mjs';
 import {dirname} from 'path';
 import {fileURLToPath, pathToFileURL} from 'url';
@@ -11,6 +12,10 @@ const baseConfig = defineConfig({
 /** @type {import('@web/test-runner').TestRunnerConfig} */
 const webTestRunnerConfig = {
     ...baseConfig,
+    plugins: [
+        pixiPlugin(),
+        ...baseConfig.plugins,
+    ],
 };
 
 export default webTestRunnerConfig;

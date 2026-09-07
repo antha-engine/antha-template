@@ -1,12 +1,44 @@
 <!doctype html>
 <html>
     <head>
-        <title>My Game</title>
+        <title>Antha Template</title>
         <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0" />
-        <script type="module" src="./ui/elements/vir-game.element.ts"></script>
+        <script type="module" src="./app/vir-app.element.ts"></script>
         <link rel="stylesheet" type="text/css" href="/index.css" />
     </head>
     <body>
-        <vir-game></vir-game>
+        <vir-app>
+            <div class="loading-placeholder">
+                <span class="loading-placeholder-text">
+                    Loading
+                    <span class="loading-placeholder-dots">&nbsp;&nbsp;&nbsp;</span>
+                </span>
+                <div>
+                    <span class="loading-placeholder-current-resource-name">&nbsp;</span>
+                    <div class="loading-placeholder-progress-track">
+                        <div class="loading-placeholder-progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </vir-app>
+        <script>
+            function scaleLoadingPlaceholder() {
+                const loadingPlaceholder = document.querySelector('.loading-placeholder');
+
+                if (!(loadingPlaceholder instanceof HTMLElement)) {
+                    return;
+                }
+
+                const scale = window.innerWidth / 1920;
+
+                loadingPlaceholder.style.height = `${100 / scale}%`;
+                loadingPlaceholder.style.transform = `scale(${scale})`;
+                loadingPlaceholder.style.transformOrigin = 'top left';
+                loadingPlaceholder.style.width = `${100 / scale}%`;
+            }
+
+            window.addEventListener('resize', scaleLoadingPlaceholder);
+            scaleLoadingPlaceholder();
+        </script>
     </body>
 </html>

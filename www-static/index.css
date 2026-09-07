@@ -1,7 +1,53 @@
 html,
 body {
+    background: black;
     margin: 0;
     padding: 0;
     height: 100%;
     width: 100%;
+}
+
+.loading-placeholder {
+    align-items: center;
+    background-color: black;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    font-family: sans-serif;
+    gap: 24px;
+    inset: 0 auto auto 0;
+    justify-content: center;
+    opacity: 1;
+    position: fixed;
+
+    & .loading-placeholder-text {
+        font-size: 24px;
+        position: relative;
+    }
+
+    & .loading-placeholder-dots {
+        bottom: 0;
+        font-family: monospace;
+        left: 100%;
+        position: absolute;
+    }
+
+    & .loading-placeholder-progress-track {
+        border: 4px solid white;
+        height: 1em;
+        overflow: hidden;
+        width: 300px;
+    }
+
+    & .loading-placeholder-current-resource-name {
+        font-size: 14px;
+        opacity: 0.7;
+    }
+
+    & .loading-placeholder-progress-fill {
+        background-color: white;
+        height: 100%;
+        transition: width 200ms ease-in;
+        width: 0;
+    }
 }

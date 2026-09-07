@@ -1,0 +1,2 @@
+-   The `multiplayerListenerCleanup` paradigm is not ideal. It would be better to be internally managed by the antha multiplayer mod, if possible. Or the multiplayer controller should emit an event that can be used to track when listeners need to be transplanted.
+-   blurry text zooming

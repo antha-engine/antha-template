@@ -1,49 +1,50 @@
 import {type ActiveBindings} from '@antha/input';
-import {type Coords} from '@augment-vir/common';
-import {type FullGameState} from './game-state.js';
-import {MultiplayerPacketType} from './multiplayer-packet.js';
+import {getObjectTypedValues, type Coords} from '@augment-vir/common';
+import {type FullGameState} from '../game-state/game-state.js';
+import {MultiplayerPacketType} from '../game-state/multiplayer-packet.js';
 import {PlayerBinding} from './player-binding.js';
 
 const playerSpeedPxPerMs = 0.6;
 
-export function queueLocalMovement({
-    activeBindings,
+/** Converts each local player's active controls into synchronized movement actions. */
+export function moveLocalPlayers({
+    localClientId,
     msSinceLastExecute,
     state,
 }: Readonly<{
-    activeBindings: ActiveBindings<PlayerBinding> | undefined;
+    localClientId: FullGameState['multiplayerP2pLockStep']['multiplayerController']['clientId'];
     msSinceLastExecute: number;
     state: Partial<FullGameState>;
-}>): void {
-    if (state.pauseMenuState) {
-        /** No movement when paused. */
+}>) {
+    if (state.menuState?.activeMenu) {
         return;
     } else if (!state.multiplayerP2pLockStep) {
         throw new Error('Cannot queue local movement: missing multiplayer mod.');
     }
 
-    const localClientId = state.multiplayerP2pLockStep.multiplayerController.getClientId();
-
     if (!state.multiplayerP2pLockStep.multiplayerController.isConnected()) {
         throw new Error('Cannot queue local movement: not connected.');
-    } else if (!localClientId) {
-        throw new Error('Cannot queue local movement: missing local client id.');
-    } else if (!state.players?.[localClientId]) {
-        throw new Error('Cannot queue local movement: missing local player.');
     }
 
-    const movement = calculatePlayerMovement({
-        activeBindings,
-        msSinceLastExecute,
-    });
+    getObjectTypedValues(state.players || {}).forEach((player) => {
+        if (player.clientId !== localClientId) {
+            return;
+        }
 
-    if (movement) {
-        state.multiplayerP2pLockStep.multiplayerController.act({
-            type: MultiplayerPacketType.PlayerMovement,
-            x: movement.x,
-            y: movement.y,
+        const movement = calculatePlayerMovement({
+            activeBindings: state.activeBindings?.[player.playerPosition],
+            msSinceLastExecute,
         });
-    }
+
+        if (movement) {
+            state.multiplayerP2pLockStep?.multiplayerController.act({
+                playerPosition: player.playerPosition,
+                type: MultiplayerPacketType.PlayerMovement,
+                x: movement.x,
+                y: movement.y,
+            });
+        }
+    });
 }
 
 function calculatePlayerMovement({
@@ -54,23 +55,23 @@ function calculatePlayerMovement({
     msSinceLastExecute: number;
 }>): Coords | undefined {
     const upMovement = {
-        value: activeBindings?.[PlayerBinding.PlayerUp]?.value || 0,
         durationMs: activeBindings?.[PlayerBinding.PlayerUp]?.holdDuration.milliseconds || Infinity,
+        value: activeBindings?.[PlayerBinding.PlayerUp]?.value || 0,
     };
     const downMovement = {
-        value: activeBindings?.[PlayerBinding.PlayerDown]?.value || 0,
         durationMs:
             activeBindings?.[PlayerBinding.PlayerDown]?.holdDuration.milliseconds || Infinity,
+        value: activeBindings?.[PlayerBinding.PlayerDown]?.value || 0,
     };
     const leftMovement = {
-        value: activeBindings?.[PlayerBinding.PlayerLeft]?.value || 0,
         durationMs:
             activeBindings?.[PlayerBinding.PlayerLeft]?.holdDuration.milliseconds || Infinity,
+        value: activeBindings?.[PlayerBinding.PlayerLeft]?.value || 0,
     };
     const rightMovement = {
-        value: activeBindings?.[PlayerBinding.PlayerRight]?.value || 0,
         durationMs:
             activeBindings?.[PlayerBinding.PlayerRight]?.holdDuration.milliseconds || Infinity,
+        value: activeBindings?.[PlayerBinding.PlayerRight]?.value || 0,
     };
 
     const movementY =
@@ -93,10 +94,16 @@ function calculatePlayerMovement({
         return undefined;
     }
 
-    const inputMagnitude = Math.min(magnitude, 1);
-
     return {
-        x: (movementX / magnitude) * inputMagnitude * msSinceLastExecute * playerSpeedPxPerMs,
-        y: (movementY / magnitude) * inputMagnitude * msSinceLastExecute * playerSpeedPxPerMs,
+        x:
+            (movementX / magnitude) *
+            Math.min(magnitude, 1) *
+            msSinceLastExecute *
+            playerSpeedPxPerMs,
+        y:
+            (movementY / magnitude) *
+            Math.min(magnitude, 1) *
+            msSinceLastExecute *
+            playerSpeedPxPerMs,
     };
 }
