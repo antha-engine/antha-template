@@ -6,6 +6,7 @@ import {listenToGlobal} from 'typed-event-target';
 import {type FullGameState} from '../game-state/game-state.js';
 import {
     defaultGameAudioVolumeByChannel,
+    defaultGameMasterVolume,
     gameAudio,
     GameAudioKey,
     playGameAudio,
@@ -51,11 +52,17 @@ function createGameAudioResumeListeners({
 
 function updateGameAudioVolumes({
     audioPlayer,
+    masterVolume,
     volumeByAudioChannel,
 }: Readonly<{
     audioPlayer: NonNullable<FullGameState['audioPlayer']>;
+    masterVolume: number;
     volumeByAudioChannel: Readonly<Record<GameAudioChannel, number>>;
 }>) {
+    if (!check.isApproximately(audioPlayer.gainNode.gain.value, masterVolume, 0.00001)) {
+        audioPlayer.gainNode.gain.value = masterVolume;
+    }
+
     getObjectTypedValues(gameAudio).forEach((audio) => {
         const audioFile = audioPlayer.audioFiles[createAudioSourceKey(audio)];
 
@@ -119,6 +126,7 @@ export const gameAudioMod = defineAnthaMod<FullGameState & GameAudioModState>({
 
         updateGameAudioVolumes({
             audioPlayer,
+            masterVolume: state.saveState?.masterVolume ?? defaultGameMasterVolume,
             volumeByAudioChannel: state.saveState?.volume || defaultGameAudioVolumeByChannel,
         });
 

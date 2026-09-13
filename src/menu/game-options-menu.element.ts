@@ -2,7 +2,11 @@ import {nav} from '@antha/input';
 import {clamp, getEnumValues} from '@augment-vir/common';
 import {css, defineElement, html, testId} from 'element-vir';
 import {noNativeSpacing} from 'vira';
-import {defaultGameAudioVolumeByChannel, GameAudioChannel} from '../audio/game-audio.js';
+import {
+    defaultGameAudioVolumeByChannel,
+    defaultGameMasterVolume,
+    GameAudioChannel,
+} from '../audio/game-audio.js';
 import {getGameMenuReturnState, type FullGameState} from '../game-state/game-state.js';
 import {defaultJoystickDeadZone} from '../game-state/save-data.js';
 import {VirGameButton} from './vir-game-button.element.js';
@@ -82,9 +86,11 @@ export const GameOptionsMenu = defineElement<{
     testIds: [
         'decreaseMusicVolumeButton',
         'decreaseJoystickDeadZoneButton',
+        'decreaseMasterVolumeButton',
         'decreaseSoundVolumeButton',
         'increaseMusicVolumeButton',
         'increaseJoystickDeadZoneButton',
+        'increaseMasterVolumeButton',
         'increaseSoundVolumeButton',
     ],
     styles: css`
@@ -134,72 +140,115 @@ export const GameOptionsMenu = defineElement<{
             inputs.gameState.deviceHandler?.globalDeadZone ??
             inputs.gameState.saveState?.joystickDeadZone ??
             defaultJoystickDeadZone;
-        return html`
-            <h1>Options</h1>
-            <ul>
-                ${getEnumValues(GameAudioChannel).map((audioChannel, index) => {
+        const masterVolume = inputs.gameState.saveState?.masterVolume ?? defaultGameMasterVolume;
+        const gameOptionsMenuEntryDefinitions = [
+            {
+                render({index}: Readonly<{index: number}>) {
                     return renderGameNumberControl({
                         adjustValue(adjustment) {
-                            adjustGameAudioVolume({
+                            adjustGameMasterVolume({
                                 adjustment,
-                                audioChannel,
                                 gameState: inputs.gameState,
                             });
                         },
                         adjustmentStep: gameAudioVolumeStep,
-                        decreaseButtonTestId:
-                            testIds[
-                                audioVolumeControlDefinitionsByChannel[audioChannel]
-                                    .decreaseButtonTestId
-                            ],
+                        decreaseButtonTestId: testIds.decreaseMasterVolumeButton,
                         host,
-                        increaseButtonTestId:
-                            testIds[
-                                audioVolumeControlDefinitionsByChannel[audioChannel]
-                                    .increaseButtonTestId
-                            ],
-                        label: `${audioVolumeControlDefinitionsByChannel[audioChannel].label} volume`,
+                        increaseButtonTestId: testIds.increaseMasterVolumeButton,
+                        label: 'Master volume',
                         navController,
-                        value:
-                            inputs.gameState.saveState?.volume[audioChannel] ??
-                            defaultGameAudioVolumeByChannel[audioChannel],
+                        value: masterVolume,
                         y: index,
                     });
-                })}
-                ${renderGameNumberControl({
-                    adjustValue(adjustment) {
-                        adjustJoystickDeadZone({
-                            adjustment,
-                            gameState: inputs.gameState,
+                },
+            },
+            ...getEnumValues(GameAudioChannel).map((audioChannel) => {
+                return {
+                    render({index}: Readonly<{index: number}>) {
+                        return renderGameNumberControl({
+                            adjustValue(adjustment) {
+                                adjustGameAudioVolume({
+                                    adjustment,
+                                    audioChannel,
+                                    gameState: inputs.gameState,
+                                });
+                            },
+                            adjustmentStep: gameAudioVolumeStep,
+                            decreaseButtonTestId:
+                                testIds[
+                                    audioVolumeControlDefinitionsByChannel[audioChannel]
+                                        .decreaseButtonTestId
+                                ],
+                            host,
+                            increaseButtonTestId:
+                                testIds[
+                                    audioVolumeControlDefinitionsByChannel[audioChannel]
+                                        .increaseButtonTestId
+                                ],
+                            label: `${audioVolumeControlDefinitionsByChannel[audioChannel].label} volume`,
+                            navController,
+                            value:
+                                inputs.gameState.saveState?.volume[audioChannel] ??
+                                defaultGameAudioVolumeByChannel[audioChannel],
+                            y: index,
                         });
                     },
-                    adjustmentStep: joystickDeadZoneStep,
-                    decreaseButtonTestId: testIds.decreaseJoystickDeadZoneButton,
-                    host,
-                    increaseButtonTestId: testIds.increaseJoystickDeadZoneButton,
-                    label: 'Joystick dead zone',
-                    navController,
-                    value: joystickDeadZone,
-                    y: 2,
+                };
+            }),
+            {
+                render({index}: Readonly<{index: number}>) {
+                    return renderGameNumberControl({
+                        adjustValue(adjustment) {
+                            adjustJoystickDeadZone({
+                                adjustment,
+                                gameState: inputs.gameState,
+                            });
+                        },
+                        adjustmentStep: joystickDeadZoneStep,
+                        decreaseButtonTestId: testIds.decreaseJoystickDeadZoneButton,
+                        host,
+                        increaseButtonTestId: testIds.increaseJoystickDeadZoneButton,
+                        label: 'Joystick dead zone',
+                        navController,
+                        value: joystickDeadZone,
+                        y: index,
+                    });
+                },
+            },
+            {
+                render({index}: Readonly<{index: number}>) {
+                    return html`
+                        <li>
+                            <${VirGameButton}
+                                ${nav(navController, {
+                                    listeners: {
+                                        activate({enabled}) {
+                                            if (enabled) {
+                                                inputs.gameState.menuState = getGameMenuReturnState(
+                                                    inputs.gameState.menuState,
+                                                );
+                                            }
+                                        },
+                                    },
+                                    y: index,
+                                })}
+                            >
+                                Back
+                            </${VirGameButton}>
+                        </li>
+                    `;
+                },
+            },
+        ];
+
+        return html`
+            <h1>Options</h1>
+            <ul>
+                ${gameOptionsMenuEntryDefinitions.map((entryDefinition, index) => {
+                    return entryDefinition.render({
+                        index,
+                    });
                 })}
-                <li>
-                    <${VirGameButton}
-                        ${nav(navController, {
-                            listeners: {
-                                activate({enabled}) {
-                                    if (enabled) {
-                                        inputs.gameState.menuState = getGameMenuReturnState(
-                                            inputs.gameState.menuState,
-                                        );
-                                    }
-                                },
-                            },
-                            y: 3,
-                        })}
-                    >
-                        Back
-                    </${VirGameButton}>
-                </li>
             </ul>
         `;
     },
@@ -224,6 +273,23 @@ const audioVolumeControlDefinitionsByChannel = {
         label: string;
     }>
 >;
+
+function adjustGameMasterVolume({
+    adjustment,
+    gameState,
+}: Readonly<{
+    adjustment: number;
+    gameState: Partial<FullGameState>;
+}>) {
+    if (!gameState.saveState) {
+        return;
+    }
+
+    gameState.saveState.masterVolume = clamp(gameState.saveState.masterVolume + adjustment, {
+        max: 1,
+        min: 0,
+    });
+}
 
 function adjustJoystickDeadZone({
     adjustment,
