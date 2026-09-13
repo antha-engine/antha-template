@@ -129,7 +129,11 @@ export const VirGame = defineElement()({
     init({dispatch, events, host, state, updateState}) {
         const removeEngineObservableListener = state.engine.observable.listen(false, () => {
             removeEngineObservableListener();
-            dispatch(new events.loadingScreenRendered());
+            dispatch(
+                new events.loadingScreenRendered({
+                    detail: undefined,
+                }),
+            );
         });
         const cleanupCallbacks = [
             removeEngineObservableListener,

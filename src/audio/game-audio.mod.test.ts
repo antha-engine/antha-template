@@ -27,6 +27,7 @@ describe(gameAudioMod.modName, () => {
             state: 'suspended',
         } satisfies Pick<AudioContext, 'resume' | 'state'> as AudioContext;
         const musicGainNode = createTestGainNode();
+        const masterGainNode = createTestGainNode();
         const soundGainNode = createTestGainNode();
         const audioPlayer = {
             audioContext,
@@ -38,7 +39,7 @@ describe(gameAudioMod.modName, () => {
                     gainNode: soundGainNode,
                 } satisfies Pick<AudioFile, 'gainNode'> as AudioFile,
             },
-            gainNode: createTestGainNode(),
+            gainNode: masterGainNode,
             play() {
                 return Promise.resolve(false);
             },
@@ -52,6 +53,7 @@ describe(gameAudioMod.modName, () => {
                 audioPlayer,
                 saveState: {
                     ...createDefaultGameSaveState(),
+                    masterVolume: 0.2,
                     volume: {
                         [GameAudioChannel.Music]: 0.6,
                         [GameAudioChannel.Effects]: 0.4,
@@ -69,6 +71,7 @@ describe(gameAudioMod.modName, () => {
             globalThis.dispatchEvent(new KeyboardEvent('keydown'));
 
             assert.isLengthExactly(resumeCalls, 1);
+            assert.isApproximately(masterGainNode.gain.value, 0.2, 0.00001);
             assert.isApproximately(musicGainNode.gain.value, 0.54, 0.00001);
             assert.isApproximately(soundGainNode.gain.value, 0.36, 0.00001);
         } finally {

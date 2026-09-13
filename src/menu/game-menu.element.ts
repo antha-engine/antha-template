@@ -18,7 +18,9 @@ export const GameMenu = defineElement<{
         };
     },
     hostClasses: {
-        'game-menu-visible': ({state}) => !!state.activeMenu,
+        'game-menu-visible'({state}) {
+            return !!state.activeMenu;
+        },
     },
     styles({hostClasses}) {
         return css`

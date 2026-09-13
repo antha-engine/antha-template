@@ -2,7 +2,11 @@ import {InputDeviceHandler, NavController} from '@antha/input';
 import {assert, assertWrap} from '@augment-vir/assert';
 import {describe, it, testWeb} from '@augment-vir/test';
 import {html, testIdSelector} from 'element-vir';
-import {defaultGameAudioVolumeByChannel, GameAudioChannel} from '../audio/game-audio.js';
+import {
+    defaultGameAudioVolumeByChannel,
+    defaultGameMasterVolume,
+    GameAudioChannel,
+} from '../audio/game-audio.js';
 import {type FullGameState} from '../game-state/game-state.js';
 import {createDefaultGameSaveState, defaultJoystickDeadZone} from '../game-state/save-data.js';
 import {GameOptionsMenu} from './game-options-menu.element.js';
@@ -49,7 +53,7 @@ async function renderGameOptionsMenu(gameState: Readonly<TestGameState>) {
 }
 
 describe(GameOptionsMenu.tagName, () => {
-    it('adjusts music, sound, and controller settings through game buttons', async () => {
+    it('adjusts master, music, sound, and controller settings through game buttons', async () => {
         const gameState: TestGameState = {
             deviceHandler: new InputDeviceHandler({
                 globalDeadZone: defaultJoystickDeadZone,
@@ -66,6 +70,10 @@ describe(GameOptionsMenu.tagName, () => {
 
             activateGameOptionsButton({
                 gameOptionsMenu,
+                testId: GameOptionsMenu.testIds.increaseMasterVolumeButton,
+            });
+            activateGameOptionsButton({
+                gameOptionsMenu,
                 testId: GameOptionsMenu.testIds.increaseMusicVolumeButton,
             });
             activateGameOptionsButton({
@@ -80,11 +88,13 @@ describe(GameOptionsMenu.tagName, () => {
             assert.deepEquals(
                 {
                     deviceHandlerDeadZone: gameState.deviceHandler.globalDeadZone,
+                    masterVolume: gameState.saveState.masterVolume,
                     volume: gameState.saveState.volume,
                     savedJoystickDeadZone: gameState.saveState.joystickDeadZone,
                 },
                 {
                     deviceHandlerDeadZone: defaultJoystickDeadZone,
+                    masterVolume: defaultGameMasterVolume + 0.05,
                     savedJoystickDeadZone: defaultJoystickDeadZone + 0.01,
                     volume: {
                         [GameAudioChannel.Music]:
