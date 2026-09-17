@@ -1,5 +1,9 @@
 import {NavController} from '@antha/input';
-import {emptyApiAndRoomConnectionState} from '@antha/multiplayer-core';
+import {
+    createMockRoomHandlerServerApiClient,
+    createNewRoom,
+    emptyApiAndRoomConnectionState,
+} from '@antha/multiplayer-core';
 import {P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
 import {assert, assertWrap} from '@augment-vir/assert';
 import {describe, it, testWeb} from '@augment-vir/test';
@@ -35,28 +39,35 @@ function activateGamePauseButton({
     return gameButton;
 }
 
+function createGameState({
+    multiplayerController,
+}: Readonly<{
+    multiplayerController: P2pLockStepMultiplayerController<MultiplayerPacket>;
+}>): Pick<FullGameState, 'menuState' | 'multiplayerP2pLockStep' | 'navController' | 'players'> {
+    return {
+        menuState: {
+            activeMenu: GameMenuKey.Pause,
+            returnTo: undefined,
+        },
+        multiplayerP2pLockStep: {
+            connectionState: emptyApiAndRoomConnectionState,
+            multiplayerController,
+        },
+        navController: new NavController(document.body, {
+            alwaysRequireFocused: true,
+        }),
+        players: {},
+    };
+}
+
 describe(GamePauseMenu.tagName, () => {
     it('restarts a local game from the pause menu', async () => {
         const multiplayerController = new P2pLockStepMultiplayerController<MultiplayerPacket>({
             gameId: 'game-pause-menu-test',
         });
-        const gameState: Pick<
-            FullGameState,
-            'menuState' | 'multiplayerP2pLockStep' | 'navController' | 'players'
-        > = {
-            menuState: {
-                activeMenu: GameMenuKey.Pause,
-                returnTo: undefined,
-            },
-            multiplayerP2pLockStep: {
-                connectionState: emptyApiAndRoomConnectionState,
-                multiplayerController,
-            },
-            navController: new NavController(document.body, {
-                alwaysRequireFocused: true,
-            }),
-            players: {},
-        };
+        const gameState = createGameState({
+            multiplayerController,
+        });
 
         try {
             const renderedElement = await testWeb.render(html`
@@ -85,6 +96,56 @@ describe(GamePauseMenu.tagName, () => {
                 },
             );
             assert.strictEquals(restartButton.textContent.trim(), 'Restart');
+        } finally {
+            multiplayerController.destroy();
+            testWeb.cleanupRender();
+        }
+    });
+
+    it('shows Leave instead of Host and Join while in a multiplayer room', async () => {
+        const multiplayerController = new P2pLockStepMultiplayerController<MultiplayerPacket>({
+            gameId: 'mock',
+        });
+        const mockApiClient = createMockRoomHandlerServerApiClient();
+
+        try {
+            await multiplayerController.initMultiplayer({
+                backendOrigin: mockApiClient.baseUrl,
+                multiplayerApiClient: mockApiClient,
+            });
+            await multiplayerController.joinOrCreateRoom(
+                createNewRoom({
+                    roomName: 'Game pause menu test room',
+                }),
+            );
+
+            const renderedElement = await testWeb.render(html`
+                <${GamePauseMenu.assign({
+                    gameState: createGameState({
+                        multiplayerController,
+                    }),
+                })}></${GamePauseMenu}>
+            `);
+            const gamePauseMenu = assertWrap.instanceOf(renderedElement, GamePauseMenu);
+
+            assert.deepEquals(
+                {
+                    hasHostButton: !!gamePauseMenu.shadowRoot.querySelector(
+                        testIdSelector(GamePauseMenu.testIds.hostButton),
+                    ),
+                    hasJoinButton: !!gamePauseMenu.shadowRoot.querySelector(
+                        testIdSelector(GamePauseMenu.testIds.joinButton),
+                    ),
+                    hasLeaveButton: !!gamePauseMenu.shadowRoot.querySelector(
+                        testIdSelector(GamePauseMenu.testIds.leaveButton),
+                    ),
+                },
+                {
+                    hasHostButton: false,
+                    hasJoinButton: false,
+                    hasLeaveButton: true,
+                },
+            );
         } finally {
             multiplayerController.destroy();
             testWeb.cleanupRender();

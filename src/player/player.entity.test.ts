@@ -1,7 +1,7 @@
 import {AssetLoader} from '@antha/asset';
 import {
     AnthaEngine,
-    createEngineTime,
+    ModExecutionTriggerType,
     type ModExecuteParams,
     type ModInstanceId,
 } from '@antha/engine';
@@ -14,9 +14,10 @@ import {applyBrand, getObjectTypedValues, SeededRandom, type AnyObject} from '@a
 import {describe, it} from '@augment-vir/test';
 import {Graphics} from 'pixi.js';
 import {LocalPlayerPosition, type FullGameState, type GameState} from '../game-state/game-state.js';
+import {clampToGameWorld, gameWorldSize} from '../game-state/game-world.js';
 import {type MultiplayerPacket} from '../game-state/multiplayer-packet.js';
 import {createPlayerId} from './player-id.js';
-import {PlayerEntity, playerRadius} from './player.entity.js';
+import {clampPlayer, PlayerEntity, playerRadius} from './player.entity.js';
 
 const localClientId = applyBrand<ClientId>('c_blue');
 
@@ -32,45 +33,54 @@ const playerIds = {
 };
 
 function createEntityUpdateParams<State extends AnyObject>({
-    engineTime = 0,
     msSinceLastExecute,
     state,
 }: Readonly<{
-    engineTime?: number;
     msSinceLastExecute: number;
     state: Partial<State>;
 }>) {
     const engine = new AnthaEngine();
 
-    engine.engineTime = createEngineTime({
-        milliseconds: engineTime,
-    });
-
     return {
         currentTick: 0,
         engine,
-        executeImmediately: false,
-        frequency: undefined,
+        executionTrigger: {
+            type: ModExecutionTriggerType.Tick,
+        },
         hostElement: document.createElement('div'),
         lastExecution: undefined,
         modInstanceId: applyBrand<ModInstanceId>('player-entity-test'),
         msSinceLastExecute,
         state,
         ticksSinceLastExecute: 0,
+        trigger: undefined,
     } satisfies ModExecuteParams<State>;
 }
 
-function createPlayerEntityStore() {
+function createPlayerEntityStore({
+    isMultiplayerRoomConnected = false,
+}: Readonly<{
+    isMultiplayerRoomConnected?: boolean | undefined;
+}> = {}) {
     const controller = new P2pLockStepMultiplayerController<MultiplayerPacket>({
         gameId: 'player-collision-test',
     });
 
     controller.startSingleplayer();
+    if (isMultiplayerRoomConnected) {
+        Object.defineProperty(controller, 'roomId', {
+            configurable: true,
+            get() {
+                return 'test-room';
+            },
+        });
+    }
     const state = {
         menuState: {
             activeMenu: undefined,
             returnTo: undefined,
         },
+        multiplayerLockstepTick: 0,
         players: {},
         saveState: undefined,
         seededRandom: SeededRandom.fromSeed('player collision test'),
@@ -121,7 +131,7 @@ describe('player collisions', () => {
         }
     });
 
-    it('interpolates visual positions without delaying authoritative positions', async () => {
+    it('updates visual positions without delaying authoritative positions', async () => {
         const {controller, entityStore, state} = createPlayerEntityStore();
 
         try {
@@ -136,7 +146,6 @@ describe('player collisions', () => {
 
             await entityStore.updateAllEntities(
                 createEntityUpdateParams({
-                    engineTime: 0,
                     msSinceLastExecute: 0,
                     state,
                 }),
@@ -171,13 +180,9 @@ describe('player collisions', () => {
                 },
             );
 
-            await entityStore.updateAllEntities(
-                createEntityUpdateParams({
-                    engineTime: 5,
-                    msSinceLastExecute: 0,
-                    state,
-                }),
-            );
+            player.render({
+                msSinceLastExecute: 15,
+            });
 
             assert.deepEquals(
                 {
@@ -238,6 +243,58 @@ describe('player collisions', () => {
                 },
             );
             assert.deepEquals(state.seededRandom.exportState(), expectedSeededRandom.exportState());
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('separates overlapping players while in a multiplayer room', async () => {
+        const {controller, entityStore, state} = createPlayerEntityStore({
+            isMultiplayerRoomConnected: true,
+        });
+
+        try {
+            const bluePlayer = await entityStore.addEntity(PlayerEntity, {
+                playerId: playerIds.blue,
+                x: 100,
+                y: 100,
+            });
+            const greenPlayer = await entityStore.addEntity(PlayerEntity, {
+                playerId: playerIds.green,
+                x: 100 + playerRadius,
+                y: 100,
+            });
+            const expectedSeededRandom = state.seededRandom.clone();
+
+            expectedSeededRandom.next();
+
+            await entityStore.updateAllEntities(
+                createEntityUpdateParams({
+                    msSinceLastExecute: 20,
+                    state,
+                }),
+            );
+
+            assert.deepEquals(
+                {
+                    bluePlayer: bluePlayer.params,
+                    greenPlayer: greenPlayer.params,
+                    randomState: state.seededRandom.exportState(),
+                },
+                {
+                    bluePlayer: {
+                        playerId: playerIds.blue,
+                        x: 91,
+                        y: 100,
+                    },
+                    greenPlayer: {
+                        playerId: playerIds.green,
+                        x: 127,
+                        y: 100,
+                    },
+                    randomState: expectedSeededRandom.exportState(),
+                },
+            );
         } finally {
             controller.destroy();
         }
@@ -349,57 +406,43 @@ describe('player collisions', () => {
         }
     });
 
-    it('keeps collision bounces within the screen', async () => {
-        const {controller, entityStore, state} = createPlayerEntityStore();
-
-        try {
-            entityStore.pixi.screen.height = playerRadius * 4;
-            entityStore.pixi.screen.width = playerRadius * 4;
-            const bluePlayer = await entityStore.addEntity(PlayerEntity, {
-                playerId: playerIds.blue,
-                x: playerRadius,
-                y: playerRadius * 2,
-            });
-            const greenPlayer = await entityStore.addEntity(PlayerEntity, {
-                playerId: playerIds.green,
-                x: playerRadius * 2,
-                y: playerRadius * 2,
-            });
-
-            await entityStore.updateAllEntities(
-                createEntityUpdateParams({
-                    msSinceLastExecute: 0,
-                    state,
-                }),
-            );
-            await entityStore.updateAllEntities(
-                createEntityUpdateParams({
-                    msSinceLastExecute: 160,
-                    state,
-                }),
-            );
-
-            assert.deepEquals(
-                {
-                    blue: bluePlayer.params,
-                    green: greenPlayer.params,
-                },
-                {
-                    blue: {
-                        playerId: playerIds.blue,
-                        x: playerRadius,
-                        y: playerRadius * 2,
+    it('clamps player positions to the shared game world', () => {
+        assert.deepEquals(
+            {
+                maximum: clampPlayer({
+                    position: {
+                        x: gameWorldSize.width + 1,
+                        y: gameWorldSize.height + 1,
                     },
-                    green: {
-                        playerId: playerIds.green,
-                        x: playerRadius * 3,
-                        y: playerRadius * 2,
+                }),
+                minimum: clampPlayer({
+                    position: {
+                        x: -1,
+                        y: -1,
                     },
+                }),
+                withoutOffset: clampToGameWorld({
+                    position: {
+                        x: -1,
+                        y: gameWorldSize.height + 1,
+                    },
+                }),
+            },
+            {
+                maximum: {
+                    x: gameWorldSize.width - playerRadius,
+                    y: gameWorldSize.height - playerRadius,
                 },
-            );
-        } finally {
-            controller.destroy();
-        }
+                minimum: {
+                    x: playerRadius,
+                    y: playerRadius,
+                },
+                withoutOffset: {
+                    x: 0,
+                    y: gameWorldSize.height,
+                },
+            },
+        );
     });
 
     it('accumulates collision bounces and clears them after their durations elapse', async () => {

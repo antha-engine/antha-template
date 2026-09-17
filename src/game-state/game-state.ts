@@ -62,6 +62,7 @@ export type PlayerState = {
 /** Holds the game-specific data shared by all engine mods. */
 export type GameState = {
     menuState: GameMenuState;
+    multiplayerLockstepTick: number;
     players: Record<string, PlayerState>;
     saveState: GameSaveState | undefined;
     seededRandom: SeededRandom;

@@ -1,7 +1,10 @@
 import {AnthaEngine} from '@antha/engine';
+import {emptyApiAndRoomConnectionState} from '@antha/multiplayer-core';
+import {P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
 import {assert} from '@augment-vir/assert';
 import {describe, it} from '@augment-vir/test';
 import {GameMenuKey, InputConsumer, type FullGameState} from '../game-state/game-state.js';
+import {type MultiplayerPacket} from '../game-state/multiplayer-packet.js';
 import {gameMenuMod, getGameMenuStateForNavigation} from './game-menu.mod.js';
 
 describe(gameMenuMod.modName, () => {
@@ -106,5 +109,43 @@ describe(gameMenuMod.modName, () => {
                 rawInputConsumer: InputConsumer.Game,
             },
         );
+    });
+
+    it('keeps render-timed entity updates disabled in a multiplayer room', async () => {
+        const controller = new P2pLockStepMultiplayerController<MultiplayerPacket>({
+            gameId: 'game-menu-multiplayer-test',
+        });
+
+        controller.startSingleplayer();
+        Object.defineProperty(controller, 'roomId', {
+            configurable: true,
+            get() {
+                return 'test-room';
+            },
+        });
+        const engine = new AnthaEngine<FullGameState>({
+            hostElement: document.createElement('div'),
+            initState: {
+                menuState: {
+                    activeMenu: undefined,
+                    returnTo: undefined,
+                },
+                multiplayerP2pLockStep: {
+                    connectionState: emptyApiAndRoomConnectionState,
+                    multiplayerController: controller,
+                },
+            },
+            mods: [
+                gameMenuMod,
+            ],
+        });
+
+        try {
+            await engine.runSingleTick();
+
+            assert.isTrue(engine.state.disableEntityUpdates);
+        } finally {
+            controller.destroy();
+        }
     });
 });

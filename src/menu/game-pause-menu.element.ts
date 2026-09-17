@@ -1,5 +1,6 @@
 import {nav} from '@antha/input';
 import {createNewRoom} from '@antha/multiplayer-core';
+import {isMultiplayerRoomConnected} from '@antha/multiplayer-p2p-lock-step';
 import {randomString, type MaybePromise} from '@augment-vir/common';
 import {css, defineElement, html, nothing, testId} from 'element-vir';
 import {LoaderAnimated24Icon, noNativeSpacing, ViraIcon, viraTheme} from 'vira';
@@ -8,6 +9,7 @@ import {
     createMultiplayerError,
     initializeMultiplayer,
     startLocalGame,
+    startMultiplayerGame,
 } from '../game-state/multiplayer-session.js';
 import {VirGameButton} from './vir-game-button.element.js';
 
@@ -17,6 +19,9 @@ export const GamePauseMenu = defineElement<{
 }>()({
     tagName: 'game-pause-menu',
     testIds: [
+        'hostButton',
+        'joinButton',
+        'leaveButton',
         'restartButton',
     ],
     state() {
@@ -80,8 +85,7 @@ export const GamePauseMenu = defineElement<{
             `;
         }
 
-        const isOnlineMultiplayer =
-            !!inputs.gameState.multiplayerP2pLockStep?.multiplayerController.roomId;
+        const isInMultiplayerRoom = isMultiplayerRoomConnected(inputs.gameState);
 
         const gameButtonDefinitions: ReadonlyArray<
             Readonly<{
@@ -110,48 +114,56 @@ export const GamePauseMenu = defineElement<{
                     };
                 },
             },
-            {
-                label: 'Host',
-                async onActivate() {
-                    updateState({
-                        isInitializingMultiplayer: true,
-                        multiplayerError: undefined,
-                    });
-
-                    try {
-                        const multiplayerController = await initializeMultiplayer(inputs.gameState);
-
-                        if (multiplayerController.roomId) {
-                            startLocalGame(inputs.gameState);
-                        }
-
-                        await multiplayerController.joinOrCreateRoom(
-                            createNewRoom({
-                                roomName: [
-                                    'Room',
-                                    randomString(4),
-                                ].join(' '),
-                            }),
-                        );
-                        inputs.gameState.menuState = {
-                            activeMenu: undefined,
-                            returnTo: undefined,
-                        };
-                    } catch (error) {
-                        updateState({
-                            multiplayerError: createMultiplayerError(error),
-                        });
-                    } finally {
-                        updateState({
-                            isInitializingMultiplayer: false,
-                        });
-                        host.requestUpdate();
-                    }
-                },
-            },
-            ...(isOnlineMultiplayer
-                ? []
+            ...(isInMultiplayerRoom
+                ? [
+                      {
+                          label: 'Leave',
+                          onActivate() {
+                              startLocalGame(inputs.gameState);
+                          },
+                          testId: testIds.leaveButton,
+                      },
+                  ]
                 : [
+                      {
+                          label: 'Host',
+                          async onActivate() {
+                              updateState({
+                                  isInitializingMultiplayer: true,
+                                  multiplayerError: undefined,
+                              });
+
+                              try {
+                                  const multiplayerController = await initializeMultiplayer(
+                                      inputs.gameState,
+                                  );
+
+                                  await multiplayerController.joinOrCreateRoom(
+                                      createNewRoom({
+                                          roomName: [
+                                              'Room',
+                                              randomString(4),
+                                          ].join(' '),
+                                      }),
+                                  );
+                                  startMultiplayerGame(inputs.gameState);
+                                  inputs.gameState.menuState = {
+                                      activeMenu: undefined,
+                                      returnTo: undefined,
+                                  };
+                              } catch (error) {
+                                  updateState({
+                                      multiplayerError: createMultiplayerError(error),
+                                  });
+                              } finally {
+                                  updateState({
+                                      isInitializingMultiplayer: false,
+                                  });
+                                  host.requestUpdate();
+                              }
+                          },
+                          testId: testIds.hostButton,
+                      },
                       {
                           label: 'Join',
                           async onActivate() {
@@ -177,6 +189,7 @@ export const GamePauseMenu = defineElement<{
                                   host.requestUpdate();
                               }
                           },
+                          testId: testIds.joinButton,
                       },
                   ]),
             {

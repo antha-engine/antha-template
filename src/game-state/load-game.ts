@@ -24,7 +24,9 @@ import {defaultBindings} from './default-bindings.js';
 import {deployEnv, DeployEnv} from './deploy-env.js';
 import {entityStoreMod} from './game-entity.mod.js';
 import {InputConsumer, type FullGameState} from './game-state.js';
-import {gameStateMod} from './game-state.mod.js';
+import {gameUpdateMod} from './game-update.mod.js';
+import {gameWorldSize} from './game-world.js';
+import {multiplayerLockstepMod} from './multiplayer-lockstep.mod.js';
 import {type MultiplayerPacket} from './multiplayer-packet.js';
 import {anthaAutosaveMod, createDefaultGameSaveState, loadSaveDataAsset} from './save-data.js';
 
@@ -94,7 +96,8 @@ export async function bootstrapGame({
 }>) {
     engine.currentMods.push(
         createAnthaVirtualViewportMod({
-            virtualWidth: 1920,
+            virtualHeight: gameWorldSize.height,
+            virtualWidth: gameWorldSize.width,
         }),
     );
     const audioPlayer = new AudioPlayer();
@@ -111,6 +114,7 @@ export async function bootstrapGame({
         activeMenu: undefined,
         returnTo: undefined,
     };
+    state.multiplayerLockstepTick = 0;
     state.players = {};
     state.seededRandom = SeededRandom.fromSeed(randomString());
 
@@ -145,7 +149,8 @@ export async function bootstrapGame({
             createAnthaMultiplayerP2pLockStepMod<MultiplayerPacket>({
                 gameId: 'antha-template',
             }),
-            gameStateMod,
+            multiplayerLockstepMod,
+            gameUpdateMod,
             gameMenuMod,
             createAnthaMenuNavMod({
                 allowWrapping: true,

@@ -1,5 +1,6 @@
 import {defineAnthaMod} from '@antha/engine';
 import {MenuNavBinding} from '@antha/input';
+import {isMultiplayerRoomConnected} from '@antha/multiplayer-p2p-lock-step';
 import {check} from '@augment-vir/assert';
 import {getObjectTypedValues} from '@augment-vir/common';
 import {html} from 'element-vir';
@@ -79,7 +80,8 @@ export const gameMenuMod = defineAnthaMod<FullGameState>({
         }
 
         state.isInMenu = !!state.menuState?.activeMenu;
-        state.disableEntityUpdates = wasInMenu || state.isInMenu;
+        state.disableEntityUpdates =
+            wasInMenu || state.isInMenu || isMultiplayerRoomConnected(state);
         state.rawInputConsumer = state.isInMenu ? InputConsumer.Menu : InputConsumer.Game;
 
         return html`

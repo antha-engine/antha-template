@@ -1,3 +1,6 @@
+import {AssetLoader} from '@antha/asset';
+import {EntityStore2d} from '@antha/entity-2d';
+import {createMockPixi} from '@antha/graphics-2d';
 import {emptyApiAndRoomConnectionState} from '@antha/multiplayer-core';
 import {
     MultiplayerControllerFrameEvent,
@@ -8,12 +11,15 @@ import {assert, assertWrap} from '@augment-vir/assert';
 import {wait} from '@augment-vir/common';
 import {describe, it} from '@augment-vir/test';
 import {parseUrl} from 'url-vir';
+import {createPlayerId} from '../player/player-id.js';
+import {PlayerEntity} from '../player/player.entity.js';
 import {LocalPlayerPosition, type FullGameState} from './game-state.js';
 import {MultiplayerPacketType, type MultiplayerPacket} from './multiplayer-packet.js';
 import {
     createDevelopmentMultiplayerBackendOrigin,
     createMultiplayerError,
     startLocalGame,
+    startMultiplayerGame,
 } from './multiplayer-session.js';
 
 describe(startLocalGame.name, () => {
@@ -24,13 +30,13 @@ describe(startLocalGame.name, () => {
             },
             gameId: 'antha-template-start-local-game-test',
         });
-        const gameState = {
+        const gameState: Partial<FullGameState> = {
             multiplayerP2pLockStep: {
                 connectionState: emptyApiAndRoomConnectionState,
                 multiplayerController: controller,
             },
             players: {},
-        } satisfies Pick<FullGameState, 'multiplayerP2pLockStep' | 'players'>;
+        };
         const receivedFrames: Array<ReadonlyArray<FrameEventDetail<MultiplayerPacket>>> = [];
 
         controller.listen(MultiplayerControllerFrameEvent, ({detail}) => {
@@ -40,6 +46,7 @@ describe(startLocalGame.name, () => {
         });
 
         try {
+            startMultiplayerGame(gameState);
             startLocalGame(gameState);
             const clientId = assertWrap.isDefined(controller.getClientId());
 
@@ -58,8 +65,128 @@ describe(startLocalGame.name, () => {
                     },
                 ],
             ]);
+            assert.deepEquals(
+                {
+                    disableEntityUpdates: gameState.disableEntityUpdates,
+                    multiplayerSimulationTick: gameState.multiplayerLockstepTick,
+                },
+                {
+                    disableEntityUpdates: false,
+                    multiplayerSimulationTick: 0,
+                },
+            );
         } finally {
             controller.destroy();
+        }
+    });
+});
+
+describe(startMultiplayerGame.name, () => {
+    it('resets the multiplayer simulation frame count', () => {
+        const gameState: Partial<FullGameState> = {
+            disableEntityUpdates: false,
+            multiplayerLockstepTick: 10,
+        };
+
+        startMultiplayerGame(gameState);
+
+        assert.deepEquals(
+            {
+                multiplayerSimulationTick: gameState.multiplayerLockstepTick,
+            },
+            {
+                multiplayerSimulationTick: 0,
+            },
+        );
+    });
+
+    it('queues every existing local player', async () => {
+        const controller = new P2pLockStepMultiplayerController<MultiplayerPacket>({
+            frameDuration: {
+                milliseconds: 1,
+            },
+            gameId: 'antha-template-start-multiplayer-game-test',
+        });
+        const gameState: Partial<FullGameState> = {
+            multiplayerP2pLockStep: {
+                connectionState: emptyApiAndRoomConnectionState,
+                multiplayerController: controller,
+            },
+            players: {},
+        };
+        const entityStore = new EntityStore2d({
+            assetLoader: new AssetLoader(),
+            pixi: createMockPixi(),
+            state: gameState,
+        });
+
+        gameState.entityStore = entityStore;
+        controller.startSingleplayer();
+        const localClientId = assertWrap.isDefined(controller.getClientId());
+        const firstPlayer = await entityStore.addEntity(PlayerEntity, {
+            playerId: createPlayerId({
+                clientId: localClientId,
+                playerPosition: LocalPlayerPosition.One,
+            }),
+            x: 100,
+            y: 200,
+        });
+        const secondPlayer = await entityStore.addEntity(PlayerEntity, {
+            playerId: createPlayerId({
+                clientId: localClientId,
+                playerPosition: LocalPlayerPosition.Two,
+            }),
+            x: 300,
+            y: 400,
+        });
+        const receivedFrames: Array<ReadonlyArray<FrameEventDetail<MultiplayerPacket>>> = [];
+
+        gameState.players = {
+            [firstPlayer.params.playerId]: {
+                clientId: localClientId,
+                playerEntity: firstPlayer,
+                playerPosition: LocalPlayerPosition.One,
+            },
+            [secondPlayer.params.playerId]: {
+                clientId: localClientId,
+                playerEntity: secondPlayer,
+                playerPosition: LocalPlayerPosition.Two,
+            },
+        };
+        controller.listen(MultiplayerControllerFrameEvent, ({detail}) => {
+            if (detail.length) {
+                receivedFrames.push(detail);
+            }
+        });
+
+        try {
+            startMultiplayerGame(gameState);
+
+            await wait({
+                milliseconds: 5,
+            });
+
+            assert.deepEquals(receivedFrames, [
+                [
+                    {
+                        packet: {
+                            playerPosition: LocalPlayerPosition.One,
+                            type: MultiplayerPacketType.SpawnPlayer,
+                        },
+                        sourceClientId: localClientId,
+                    },
+                    {
+                        packet: {
+                            playerPosition: LocalPlayerPosition.Two,
+                            type: MultiplayerPacketType.SpawnPlayer,
+                        },
+                        sourceClientId: localClientId,
+                    },
+                ],
+            ]);
+        } finally {
+            controller.destroy();
+            entityStore.destroy();
         }
     });
 });

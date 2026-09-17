@@ -16,30 +16,20 @@ import {selectItemByHash} from '../augments/hash.js';
 import {playerGamepadDeviceKeys} from '../game-state/default-bindings.js';
 import {defineEntity} from '../game-state/game-entity.mod.js';
 import {LocalPlayerPosition} from '../game-state/game-state.js';
+import {clampToGameWorld} from '../game-state/game-world.js';
 import {extractPlayerIdParts, playerIdShape, type PlayerId} from './player-id.js';
 
 export const playerRadius = 18;
 
-export function clampPlayerPositionToScreen({
+export function clampPlayer({
     position,
-    screen,
 }: Readonly<{
     position: Coords;
-    screen: Readonly<{
-        height: number;
-        width: number;
-    }>;
 }>) {
-    return {
-        x: clamp(position.x, {
-            min: playerRadius,
-            max: screen.width - playerRadius,
-        }),
-        y: clamp(position.y, {
-            min: playerRadius,
-            max: screen.height - playerRadius,
-        }),
-    };
+    return clampToGameWorld({
+        edgeOffset: playerRadius,
+        position,
+    });
 }
 
 const playerColorPalette = [
@@ -64,7 +54,8 @@ const playerColorPalette = [
 const playerCollisionBounceSpeedPxPerMs = 3;
 const playerCollisionBounceDurationMs = 160;
 const playerCollisionBounceDecayMs = 40;
-const playerRenderInterpolationDurationMs = 10;
+/** Softens lockstep position changes without affecting authoritative state. */
+const playerRenderInterpolationDurationMs = 30;
 
 const playerCollisionAudio = [
     GameAudioKey.PlayerCollisionOne,
@@ -140,15 +131,6 @@ export class PlayerEntity extends defineEntity({
     },
 }) {
     protected bounceVectors: Array<Coords & {remainingDurationMs: number}> = [];
-    protected interpolationStartPosition: Coords = {
-        x: this.params.x,
-        y: this.params.y,
-    };
-    protected interpolationStartTime = 0;
-    protected interpolationTargetPosition: Coords = {
-        x: this.params.x,
-        y: this.params.y,
-    };
 
     public override createView(): ViewCreation2d {
         return {
@@ -179,7 +161,7 @@ export class PlayerEntity extends defineEntity({
         };
     }
 
-    public override update({engine, msSinceLastExecute}: Readonly<ModExecuteParams>) {
+    public override update({msSinceLastExecute}: Readonly<ModExecuteParams>) {
         this.bounceVectors = this.bounceVectors.flatMap((bounceVector) => {
             const bounceElapsedMs = Math.min(msSinceLastExecute, bounceVector.remainingDurationMs);
             const decayMultiplier = Math.exp(-bounceElapsedMs / playerCollisionBounceDecayMs);
@@ -200,10 +182,21 @@ export class PlayerEntity extends defineEntity({
                   ]
                 : [];
         });
-        this.clampPositionToScreen();
-        this.interpolateViewPosition({
-            engineTime: engine.engineTime,
-        });
+        this.clampPosition();
+    }
+
+    /** Advances only the Pixi view toward this player's authoritative position. */
+    public render({msSinceLastExecute}: Readonly<{msSinceLastExecute: number}>) {
+        const interpolationProgress = clamp(
+            msSinceLastExecute / playerRenderInterpolationDurationMs,
+            {
+                min: 0,
+                max: 1,
+            },
+        );
+
+        this.view.x += (this.params.x - this.view.x) * interpolationProgress;
+        this.view.y += (this.params.y - this.view.y) * interpolationProgress;
     }
 
     public override collide(otherEntity: BaseEntity2d, collision: Readonly<Collision>): void {
@@ -219,7 +212,7 @@ export class PlayerEntity extends defineEntity({
 
         this.params.x -= overlapVector.x / 2;
         this.params.y -= overlapVector.y / 2;
-        this.clampPositionToScreen();
+        this.clampPosition();
         const collisionBounceVector = createPlayerCollisionBounceVector({
             overlapVector,
         });
@@ -246,54 +239,16 @@ export class PlayerEntity extends defineEntity({
         this.vibrateController();
     }
 
-    protected clampPositionToScreen() {
-        const position = clampPlayerPositionToScreen({
+    protected clampPosition() {
+        const position = clampPlayer({
             position: {
                 x: this.params.x,
                 y: this.params.y,
             },
-            screen: this.pixi.screen,
         });
 
         this.params.x = position.x;
         this.params.y = position.y;
-    }
-
-    protected interpolateViewPosition({engineTime}: Readonly<{engineTime: number}>) {
-        const targetPosition = {
-            x: this.params.x,
-            y: this.params.y,
-        };
-        const interpolationProgress = clamp(
-            (engineTime - this.interpolationStartTime) / playerRenderInterpolationDurationMs,
-            {
-                min: 0,
-                max: 1,
-            },
-        );
-
-        this.view.x =
-            this.interpolationStartPosition.x +
-            (this.interpolationTargetPosition.x - this.interpolationStartPosition.x) *
-                interpolationProgress;
-        this.view.y =
-            this.interpolationStartPosition.y +
-            (this.interpolationTargetPosition.y - this.interpolationStartPosition.y) *
-                interpolationProgress;
-
-        if (
-            targetPosition.x === this.interpolationTargetPosition.x &&
-            targetPosition.y === this.interpolationTargetPosition.y
-        ) {
-            return;
-        }
-
-        this.interpolationStartPosition = {
-            x: this.view.x,
-            y: this.view.y,
-        };
-        this.interpolationStartTime = engineTime;
-        this.interpolationTargetPosition = targetPosition;
     }
 
     protected vibrateController() {

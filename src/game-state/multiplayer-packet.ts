@@ -13,8 +13,9 @@ import {
     type SeededRandomState,
 } from '@augment-vir/common';
 import {createPlayerId} from '../player/player-id.js';
-import {clampPlayerPositionToScreen, PlayerEntity} from '../player/player.entity.js';
+import {clampPlayer, PlayerEntity} from '../player/player.entity.js';
 import {LocalPlayerPosition, type FullGameState} from './game-state.js';
+import {gameWorldSize} from './game-world.js';
 
 /** Lists controller slots that can create local players during a session. */
 export const allLocalPlayerPositions = [
@@ -125,17 +126,12 @@ export const multiplayerPacketHandlers = {
             x: player.playerEntity.params.x + detail.packet.x,
             y: player.playerEntity.params.y + detail.packet.y,
         };
-        const screen = state.pixi?.pixiApplication?.screen;
+        const newPosition = clampPlayer({
+            position,
+        });
 
-        if (screen) {
-            const newPosition = clampPlayerPositionToScreen({
-                position,
-                screen,
-            });
-
-            player.playerEntity.params.x = newPosition.x;
-            player.playerEntity.params.y = newPosition.y;
-        }
+        player.playerEntity.params.x = newPosition.x;
+        player.playerEntity.params.y = newPosition.y;
     },
     async [MultiplayerPacketType.SpawnPlayer]({detail, state}) {
         const playerId = createPlayerId({
@@ -251,15 +247,12 @@ export const multiplayerPacketHandlers = {
 >;
 
 function createRandomPlayerPosition(state: Partial<FullGameState>) {
-    if (!state.pixi?.pixiApplication?.screen) {
-        throw new Error('Cannot create player position: no pixi screen exists.');
-    } else if (state.seededRandom) {
-        return clampPlayerPositionToScreen({
+    if (state.seededRandom) {
+        return clampPlayer({
             position: {
-                x: state.seededRandom.next() * state.pixi.pixiApplication.screen.width,
-                y: state.seededRandom.next() * state.pixi.pixiApplication.screen.height,
+                x: state.seededRandom.next() * gameWorldSize.width,
+                y: state.seededRandom.next() * gameWorldSize.height,
             },
-            screen: state.pixi.pixiApplication.screen,
         });
     } else {
         throw new Error('Cannot create player position: seeded random is missing.');

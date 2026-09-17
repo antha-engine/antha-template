@@ -1,23 +1,14 @@
 import {defineAnthaMod} from '@antha/engine';
 import {MenuNavBinding} from '@antha/input';
 import {MultiplayerControllerClientEvent, type ClientId} from '@antha/multiplayer-core';
-import {
-    MultiplayerControllerFrameEvent,
-    type P2pLockStepMultiplayerController,
-} from '@antha/multiplayer-p2p-lock-step';
-import {
-    awaitedBlockingMap,
-    ensureErrorAndPrependMessage,
-    log,
-    type EmptyFunction,
-} from '@augment-vir/common';
+import {type P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
+import {getObjectTypedValues, type EmptyFunction} from '@augment-vir/common';
 import {createPlayerId} from '../player/player-id.js';
 import {moveLocalPlayers} from '../player/player-movement.js';
 import {LocalPlayerPosition, type FullGameState} from './game-state.js';
 import {
     allLocalPlayerPositions,
     createStateSync,
-    multiplayerPacketHandlers,
     MultiplayerPacketType,
     type MultiplayerPacket,
 } from './multiplayer-packet.js';
@@ -120,23 +111,6 @@ function initMultiplayer({
     });
 
     const cleanupCallbacks = [
-        currentController.listen(MultiplayerControllerFrameEvent, async (event) => {
-            await awaitedBlockingMap(event.detail, async (detail) => {
-                try {
-                    await multiplayerPacketHandlers[detail.packet.type]({
-                        detail,
-                        state,
-                    });
-                } catch (error) {
-                    log.error(
-                        ensureErrorAndPrependMessage(
-                            error,
-                            `Failed to handel '${detail.packet.type}' multiplayer packet.`,
-                        ),
-                    );
-                }
-            });
-        }),
         currentController.listen(MultiplayerControllerClientEvent, (event) => {
             if (!currentController.isHost() || !state.seededRandom) {
                 return;
@@ -163,7 +137,7 @@ function initMultiplayer({
 }
 
 /** Coordinates game state, local players, and multiplayer events. */
-export const gameStateMod = defineAnthaMod<
+export const gameUpdateMod = defineAnthaMod<
     FullGameState & {
         multiplayerListenerCleanup: Map<
             P2pLockStepMultiplayerController<MultiplayerPacket>,
@@ -172,7 +146,7 @@ export const gameStateMod = defineAnthaMod<
         hasStartedInitialGame: boolean;
     }
 >({
-    modName: 'game-state',
+    modName: 'game-update',
     execute({state, msSinceLastExecute}) {
         if (!state.multiplayerListenerCleanup) {
             state.multiplayerListenerCleanup = new Map();
@@ -181,6 +155,12 @@ export const gameStateMod = defineAnthaMod<
         if (state.deviceHandler && state.saveState) {
             state.deviceHandler.globalDeadZone = state.saveState.joystickDeadZone;
         }
+
+        getObjectTypedValues(state.players || {}).forEach((player) => {
+            player.playerEntity.render({
+                msSinceLastExecute,
+            });
+        });
 
         if (!state.multiplayerP2pLockStep || !state.pixi?.pixiApplication?.screen) {
             return;

@@ -1,9 +1,9 @@
 import {defaultMultiplayerApiOrigin} from '@antha/multiplayer-core';
-import {ensureErrorAndPrependMessage} from '@augment-vir/common';
+import {ensureErrorAndPrependMessage, getObjectTypedValues} from '@augment-vir/common';
 import {buildUrl} from 'url-vir';
 import {DeployEnv, deployEnv} from './deploy-env.js';
 import {LocalPlayerPosition, type FullGameState} from './game-state.js';
-import {MultiplayerPacketType} from './multiplayer-packet.js';
+import {MultiplayerPacketType, type MultiplayerPacket} from './multiplayer-packet.js';
 
 const multiplayerBackendOriginByDeployEnv: Readonly<Record<DeployEnv, string>> = {
     [DeployEnv.Dev]: createDevelopmentMultiplayerBackendOrigin(globalThis.location.hostname),
@@ -21,6 +21,9 @@ export function createDevelopmentMultiplayerBackendOrigin(frontendHostname: stri
 export function startLocalGame(state: Partial<FullGameState>) {
     const multiplayerController = getMultiplayerController(state);
 
+    state.disableEntityUpdates = false;
+    state.multiplayerLockstepTick = 0;
+
     if (multiplayerController.isConnected()) {
         multiplayerController.leaveRoom();
     }
@@ -36,6 +39,29 @@ export function startLocalGame(state: Partial<FullGameState>) {
     spawnInitialLocalPlayer({
         state,
     });
+}
+
+/** Queues existing local players for the multiplayer session. */
+export function startMultiplayerGame(state: Partial<FullGameState>) {
+    state.multiplayerLockstepTick = 0;
+
+    const localClientId = state.multiplayerP2pLockStep?.multiplayerController.getClientId();
+    const spawnLocalPlayerPackets = localClientId
+        ? getObjectTypedValues(state.players || {})
+              .filter((player) => {
+                  return player.clientId === localClientId;
+              })
+              .map((player) => {
+                  return {
+                      playerPosition: player.playerPosition,
+                      type: MultiplayerPacketType.SpawnPlayer,
+                  } satisfies MultiplayerPacket;
+              })
+        : [];
+
+    if (state.multiplayerP2pLockStep?.multiplayerController && spawnLocalPlayerPackets.length) {
+        state.multiplayerP2pLockStep.multiplayerController.act(spawnLocalPlayerPackets);
+    }
 }
 
 /** Converts an unknown multiplayer failure into an Error with a concise UI-facing prefix. */

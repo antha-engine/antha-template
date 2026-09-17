@@ -3,10 +3,10 @@ import {InputDeviceHandler} from '@antha/input';
 import {assert} from '@augment-vir/assert';
 import {describe, it} from '@augment-vir/test';
 import {type FullGameState} from './game-state.js';
-import {gameStateMod} from './game-state.mod.js';
+import {gameUpdateMod} from './game-update.mod.js';
 import {createDefaultGameSaveState} from './save-data.js';
 
-describe(gameStateMod.modName, () => {
+describe(gameUpdateMod.modName, () => {
     it('syncs the saved joystick dead zone to the input device handler', async () => {
         const deviceHandler = new InputDeviceHandler({
             globalDeadZone: 0.2,
@@ -22,7 +22,7 @@ describe(gameStateMod.modName, () => {
                 },
             },
             mods: [
-                gameStateMod,
+                gameUpdateMod,
             ],
         });
 

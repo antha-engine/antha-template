@@ -1,10 +1,14 @@
 import {nav} from '@antha/input';
 import {type MultiplayerClientRooms} from '@antha/multiplayer-core';
 import {getObjectTypedValues, type EmptyFunction} from '@augment-vir/common';
-import {css, defineElement, html, nothing} from 'element-vir';
+import {css, defineElement, html, nothing, testId} from 'element-vir';
 import {LoaderAnimated24Icon, lucideIcons, ViraIcon} from 'vira';
 import {getGameMenuReturnState, type FullGameState} from '../game-state/game-state.js';
-import {createMultiplayerError, initializeMultiplayer} from '../game-state/multiplayer-session.js';
+import {
+    createMultiplayerError,
+    initializeMultiplayer,
+    startMultiplayerGame,
+} from '../game-state/multiplayer-session.js';
 import {VirGameButton} from './vir-game-button.element.js';
 
 /** Lists available multiplayer rooms so players can choose a session to join. */
@@ -12,6 +16,9 @@ export const GameMultiplayerRooms = defineElement<{
     gameState: Partial<FullGameState>;
 }>()({
     tagName: 'game-multiplayer-rooms',
+    testIds: [
+        'backButton',
+    ],
     state() {
         return {
             cleanup: undefined as undefined | EmptyFunction,
@@ -82,7 +89,7 @@ export const GameMultiplayerRooms = defineElement<{
             cleanup: undefined,
         });
     },
-    render({host, inputs, state, updateState}) {
+    render({host, inputs, state, testIds, updateState}) {
         const navController = inputs.gameState.navController;
 
         if (!navController) {
@@ -156,6 +163,7 @@ export const GameMultiplayerRooms = defineElement<{
                                             roomName: room.roomName,
                                             roomPassword: '',
                                         });
+                                        startMultiplayerGame(inputs.gameState);
                                         inputs.gameState.menuState = {
                                             activeMenu: undefined,
                                             returnTo: undefined,
@@ -169,7 +177,7 @@ export const GameMultiplayerRooms = defineElement<{
                                     }
                                 },
                             },
-                            y: roomIndex,
+                            y: roomIndex + 1,
                         })}
                     >
                         Join
@@ -186,6 +194,7 @@ export const GameMultiplayerRooms = defineElement<{
                   `
                 : nothing}
             <${VirGameButton}
+                ${testId(testIds.backButton)}
                 ${nav(navController, {
                     autoFocus: roomTemplates.length === 0,
                     listeners: {
@@ -197,7 +206,7 @@ export const GameMultiplayerRooms = defineElement<{
                             }
                         },
                     },
-                    y: -1,
+                    y: 0,
                 })}
             >
                 Back
