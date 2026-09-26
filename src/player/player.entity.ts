@@ -6,18 +6,22 @@ import {
     type ViewCreation2d,
 } from '@antha/entity-2d';
 import {Graphics} from '@antha/graphics-2d';
+import {
+    extractMultiplayerPlayerIdParts,
+    multiplayerPlayerIdShape,
+    type MultiplayerPlayerId,
+} from '@antha/multiplayer-core';
+import {selectItemByHash} from '@antha/util';
 import {assertWrap} from '@augment-vir/assert';
 import {clamp, getObjectTypedValues, type AtLeastTuple, type Coords} from '@augment-vir/common';
 import {Circle} from 'detect-collisions';
 import {getGamepads} from 'input-device-handler';
 import {intersectShape} from 'object-shape-tester';
 import {GameAudioKey, playGameAudio} from '../audio/game-audio.js';
-import {selectItemByHash} from '../augments/hash.js';
 import {playerGamepadDeviceKeys} from '../game-state/default-bindings.js';
 import {defineEntity} from '../game-state/game-entity.mod.js';
 import {LocalPlayerPosition} from '../game-state/game-state.js';
 import {clampToGameWorld} from '../game-state/game-world.js';
-import {extractPlayerIdParts, playerIdShape, type PlayerId} from './player-id.js';
 
 export const playerRadius = 18;
 
@@ -63,18 +67,20 @@ const playerCollisionAudio = [
     GameAudioKey.PlayerCollisionThree,
 ] as const satisfies ReadonlyArray<GameAudioKey>;
 
-function selectPlayerColor({playerId}: Readonly<{playerId: PlayerId}>) {
-    const playerIdParts = extractPlayerIdParts({
+function selectPlayerColor({playerId}: Readonly<{playerId: MultiplayerPlayerId}>) {
+    const playerIdParts = extractMultiplayerPlayerIdParts({
         playerId,
     });
+    const playerPosition = assertWrap.isEnumValue(
+        playerIdParts.playerPosition,
+        LocalPlayerPosition,
+    );
     const firstColor = selectItemByHash({
         items: playerColorPalette,
         key: playerIdParts.clientId,
     });
     const firstColorIndex = playerColorPalette.indexOf(firstColor);
-    const playerPositionIndex = getObjectTypedValues(LocalPlayerPosition).indexOf(
-        playerIdParts.playerPosition,
-    );
+    const playerPositionIndex = getObjectTypedValues(LocalPlayerPosition).indexOf(playerPosition);
 
     return assertWrap.isDefined(
         playerColorPalette[(firstColorIndex + playerPositionIndex) % playerColorPalette.length],
@@ -118,7 +124,7 @@ function createPlayerCollisionBounceVector({
 export class PlayerEntity extends defineEntity({
     key: 'PlayerEntity',
     paramsShape: intersectShape(position2dParamsShape, {
-        playerId: playerIdShape,
+        playerId: multiplayerPlayerIdShape,
     }),
     paramsMap: {
         hitbox: {
@@ -186,7 +192,9 @@ export class PlayerEntity extends defineEntity({
     }
 
     /** Advances only the Pixi view toward this player's authoritative position. */
-    public render({msSinceLastExecute}: Readonly<{msSinceLastExecute: number}>) {
+    public override render({
+        msSinceLastExecute,
+    }: Readonly<Pick<ModExecuteParams, 'msSinceLastExecute'>>) {
         const interpolationProgress = clamp(
             msSinceLastExecute / playerRenderInterpolationDurationMs,
             {
@@ -253,15 +261,19 @@ export class PlayerEntity extends defineEntity({
 
     protected vibrateController() {
         const localClientId = this.state.multiplayerP2pLockStep.multiplayerController.getClientId();
-        const playerIdParts = extractPlayerIdParts({
+        const playerIdParts = extractMultiplayerPlayerIdParts({
             playerId: this.params.playerId,
         });
+        const playerPosition = assertWrap.isEnumValue(
+            playerIdParts.playerPosition,
+            LocalPlayerPosition,
+        );
 
         if (!localClientId || playerIdParts.clientId !== localClientId) {
             return;
         }
 
-        const gamepad = getGamepads()[playerGamepadDeviceKeys[playerIdParts.playerPosition]];
+        const gamepad = getGamepads()[playerGamepadDeviceKeys[playerPosition]];
 
         if (!gamepad?.vibrationActuator) {
             return;

@@ -1,18 +1,20 @@
-import {type ClientId} from '@antha/multiplayer-core';
-import {type FrameEventDetail} from '@antha/multiplayer-p2p-lock-step';
+import {type SerializedEntity2d} from '@antha/entity-2d';
+import {
+    createMultiplayerPlayerId,
+    extractMultiplayerPlayerIdParts,
+    type ClientId,
+} from '@antha/multiplayer-core';
+import {type MultiplayerFramePacket} from '@antha/multiplayer-p2p-lock-step';
+import {assertWrap} from '@augment-vir/assert';
 import {
     filterObject,
-    getObjectTypedKeys,
     getObjectTypedValues,
-    mapObject,
-    mapObjectValues,
     removeUndefinedValues,
     SeededRandom,
-    type Coords,
+    typedObjectFromEntries,
     type MaybePromise,
     type SeededRandomState,
 } from '@augment-vir/common';
-import {createPlayerId} from '../player/player-id.js';
 import {clampPlayer, PlayerEntity} from '../player/player.entity.js';
 import {LocalPlayerPosition, type FullGameState} from './game-state.js';
 import {gameWorldSize} from './game-world.js';
@@ -32,20 +34,11 @@ export enum MultiplayerPacketType {
     PlayerMovement = 'player-movement',
     /** Creates a player, triggered by a new local controller joining. */
     SpawnPlayer = 'spawn-player',
-    /** Reconciles multiplayer game state when a new peer joins. */
-    SyncState = 'sync-state',
 }
 
-/** Describes the serializable part of one player needed to restore it on another peer. */
-export type SyncedPlayerState = {
-    clientId: ClientId;
-    playerPosition: LocalPlayerPosition;
-    position: Coords;
-};
-
-/** Carries a complete player and random-state snapshot to a newly connected peer. */
+/** Carries a complete entity and random-state snapshot to a newly connected peer. */
 export type MultiplayerStateForSync = {
-    players: Record<string, SyncedPlayerState>;
+    entities: SerializedEntity2d[];
     randomState: SeededRandomState;
 };
 
@@ -62,11 +55,6 @@ export type MultiplayerPacket =
           playerPosition: LocalPlayerPosition;
       }
     | {
-          type: MultiplayerPacketType.SyncState;
-          clientId: ClientId;
-          stateSync: MultiplayerStateForSync;
-      }
-    | {
           type: MultiplayerPacketType.DespawnPlayers;
           clientId: ClientId;
       };
@@ -75,21 +63,56 @@ export type MultiplayerPacket =
 export function createStateSync(state: Partial<FullGameState>): MultiplayerStateForSync {
     if (!state.seededRandom) {
         throw new Error('Missing seeded random: cannot sync multiplayer state.');
+    } else if (state.entityStore) {
+        return {
+            entities: state.entityStore.createSnapshot(),
+            randomState: state.seededRandom.exportState(),
+        };
+    } else {
+        throw new Error('Missing entity store: cannot sync multiplayer state.');
+    }
+}
+
+/** Replaces a joining (or resyncing) peer's entities and random state with the host's. */
+export async function loadStateSync({
+    state,
+    stateSync,
+}: Readonly<{
+    state: Partial<FullGameState>;
+    stateSync: Readonly<MultiplayerStateForSync>;
+}>) {
+    if (!state.entityStore) {
+        throw new Error('Cannot load multiplayer state: no entity store exists.');
     }
 
-    return {
-        players: mapObjectValues(state.players || {}, (_playerId, player) => {
-            return {
-                clientId: player.clientId,
-                playerPosition: player.playerPosition,
-                position: {
-                    x: player.playerEntity.params.x,
-                    y: player.playerEntity.params.y,
-                },
-            };
-        }),
-        randomState: state.seededRandom.exportState(),
-    };
+    state.seededRandom = SeededRandom.fromState(stateSync.randomState);
+    state.entityStore.registerEntities({
+        entities: [
+            PlayerEntity,
+        ],
+    });
+
+    state.players = typedObjectFromEntries(
+        (await state.entityStore.loadSnapshot(stateSync.entities))
+            .filter((entity) => entity instanceof PlayerEntity)
+            .map((playerEntity) => {
+                const playerIdParts = extractMultiplayerPlayerIdParts({
+                    playerId: playerEntity.params.playerId,
+                });
+
+                return [
+                    playerEntity.params.playerId,
+                    {
+                        clientId: playerIdParts.clientId,
+                        playerEntity,
+                        playerPosition: assertWrap.isEnumValue(
+                            playerIdParts.playerPosition,
+                            LocalPlayerPosition,
+                        ),
+                    },
+                ] as const;
+            }),
+    );
 }
 
 export const multiplayerPacketHandlers = {
@@ -108,7 +131,7 @@ export const multiplayerPacketHandlers = {
         );
     },
     [MultiplayerPacketType.PlayerMovement]({detail, state}) {
-        const playerId = createPlayerId({
+        const playerId = createMultiplayerPlayerId({
             clientId: detail.sourceClientId,
             playerPosition: detail.packet.playerPosition,
         });
@@ -134,7 +157,7 @@ export const multiplayerPacketHandlers = {
         player.playerEntity.params.y = newPosition.y;
     },
     async [MultiplayerPacketType.SpawnPlayer]({detail, state}) {
-        const playerId = createPlayerId({
+        const playerId = createMultiplayerPlayerId({
             clientId: detail.sourceClientId,
             playerPosition: detail.packet.playerPosition,
         });
@@ -159,70 +182,11 @@ export const multiplayerPacketHandlers = {
             },
         };
     },
-    async [MultiplayerPacketType.SyncState]({detail, state}) {
-        const seededRandom = SeededRandom.fromState(detail.packet.stateSync.randomState);
-        const newPlayerId = createPlayerId({
-            clientId: detail.packet.clientId,
-            playerPosition: LocalPlayerPosition.One,
-        });
-        const syncedPlayers = detail.packet.stateSync.players[newPlayerId]
-            ? detail.packet.stateSync.players
-            : {
-                  ...detail.packet.stateSync.players,
-                  [newPlayerId]: {
-                      clientId: detail.packet.clientId,
-                      playerPosition: LocalPlayerPosition.One,
-                      position: createRandomPlayerPosition({
-                          ...state,
-                          seededRandom,
-                      }),
-                  },
-              };
-
-        state.seededRandom = seededRandom;
-        getObjectTypedKeys(state.players || {}).forEach((playerId) => {
-            if (!syncedPlayers[playerId]) {
-                state.players?.[playerId]?.playerEntity.immediatelyDestroy();
-            }
-        });
-
-        state.players = await mapObject(syncedPlayers, async (_syncedPlayerId, player) => {
-            const playerId = createPlayerId({
-                clientId: player.clientId,
-                playerPosition: player.playerPosition,
-            });
-            const existingPlayer = state.players?.[playerId];
-
-            if (existingPlayer) {
-                existingPlayer.playerEntity.params.x = player.position.x;
-                existingPlayer.playerEntity.params.y = player.position.y;
-
-                return {
-                    key: playerId,
-                    value: existingPlayer,
-                };
-            } else if (state.entityStore) {
-                return {
-                    key: playerId,
-                    value: {
-                        clientId: player.clientId,
-                        playerEntity: await state.entityStore.addEntity(PlayerEntity, {
-                            ...player.position,
-                            playerId,
-                        }),
-                        playerPosition: player.playerPosition,
-                    },
-                };
-            } else {
-                throw new Error('Cannot synchronize players: no entity store exists.');
-            }
-        });
-    },
 } satisfies Readonly<{
     [PacketType in MultiplayerPacketType]: (
         params: Readonly<{
             detail: Readonly<
-                FrameEventDetail<
+                MultiplayerFramePacket<
                     Extract<
                         MultiplayerPacket,
                         {
@@ -239,7 +203,7 @@ export const multiplayerPacketHandlers = {
         MultiplayerPacketType,
         (
             params: Readonly<{
-                detail: Readonly<FrameEventDetail<MultiplayerPacket>>;
+                detail: Readonly<MultiplayerFramePacket<MultiplayerPacket>>;
                 state: Partial<FullGameState>;
             }>,
         ) => MaybePromise<void>

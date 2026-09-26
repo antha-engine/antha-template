@@ -3,9 +3,11 @@ import {
     createMockRoomHandlerServerApiClient,
     createMultiplayerId,
     emptyApiAndRoomConnectionState,
+    MultiplayerControllerRoomListEvent,
 } from '@antha/multiplayer-core';
 import {P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
 import {assert, assertWrap, waitUntil} from '@augment-vir/assert';
+import {wait} from '@augment-vir/common';
 import {describe, it, testWeb} from '@augment-vir/test';
 import {NavDirection} from 'device-navigation';
 import {html, testIdSelector} from 'element-vir';
@@ -39,7 +41,7 @@ describe(GameMultiplayerRooms.tagName, () => {
         > = {
             menuState: {
                 activeMenu: GameMenuKey.MultiplayerRooms,
-                returnTo: GameMenuKey.Pause,
+                returnTo: [GameMenuKey.Pause],
             },
             multiplayerP2pLockStep: {
                 connectionState: emptyApiAndRoomConnectionState,
@@ -89,6 +91,66 @@ describe(GameMultiplayerRooms.tagName, () => {
                     success: true,
                 },
             );
+        } finally {
+            multiplayerController.destroy();
+            testWeb.cleanupRender();
+        }
+    });
+
+    it('stops polling rooms once removed', async () => {
+        const multiplayerController = new P2pLockStepMultiplayerController<MultiplayerPacket>({
+            gameId: 'mock',
+        });
+        const mockApiClient = createMockRoomHandlerServerApiClient();
+        const gameState: Pick<
+            FullGameState,
+            'menuState' | 'multiplayerP2pLockStep' | 'navController'
+        > = {
+            menuState: {
+                activeMenu: GameMenuKey.MultiplayerRooms,
+                returnTo: [GameMenuKey.Pause],
+            },
+            multiplayerP2pLockStep: {
+                connectionState: emptyApiAndRoomConnectionState,
+                multiplayerController,
+            },
+            navController: new NavController(document.body, {
+                alwaysRequireFocused: true,
+            }),
+        };
+        const roomListEvents: MultiplayerControllerRoomListEvent[] = [];
+
+        multiplayerController.listen(MultiplayerControllerRoomListEvent, (event) => {
+            roomListEvents.push(event);
+        });
+
+        try {
+            await multiplayerController.initMultiplayer({
+                backendOrigin: mockApiClient.baseUrl,
+                multiplayerApiClient: mockApiClient,
+                roomUpdateInterval: {
+                    milliseconds: 10,
+                },
+            });
+
+            await testWeb.render(html`
+                <${GameMultiplayerRooms.assign({
+                    gameState,
+                })}></${GameMultiplayerRooms}>
+            `);
+            await waitUntil.isLengthAtLeast(1, () => roomListEvents);
+
+            testWeb.cleanupRender();
+            /** Let any poll already in flight finish before counting. */
+            await wait({
+                milliseconds: 100,
+            });
+            const eventCountAfterRemoval = roomListEvents.length;
+            await wait({
+                milliseconds: 100,
+            });
+
+            assert.isLengthExactly(roomListEvents, eventCountAfterRemoval);
         } finally {
             multiplayerController.destroy();
             testWeb.cleanupRender();

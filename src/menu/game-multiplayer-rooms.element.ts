@@ -1,9 +1,9 @@
-import {nav} from '@antha/input';
+import {nav, popAnthaMenuState} from '@antha/input';
 import {type MultiplayerClientRooms} from '@antha/multiplayer-core';
 import {getObjectTypedValues, type EmptyFunction} from '@augment-vir/common';
 import {css, defineElement, html, nothing, testId} from 'element-vir';
 import {LoaderAnimated24Icon, lucideIcons, ViraIcon} from 'vira';
-import {getGameMenuReturnState, type FullGameState} from '../game-state/game-state.js';
+import {type FullGameState} from '../game-state/game-state.js';
 import {
     createMultiplayerError,
     initializeMultiplayer,
@@ -83,7 +83,8 @@ export const GameMultiplayerRooms = defineElement<{
             });
         }
     },
-    cleanup({state, updateState}) {
+    cleanup({state, updateState, inputs}) {
+        inputs.gameState.multiplayerP2pLockStep?.multiplayerController.stopRoomUpdates();
         state.cleanup?.();
         updateState({
             cleanup: undefined,
@@ -166,7 +167,7 @@ export const GameMultiplayerRooms = defineElement<{
                                         startMultiplayerGame(inputs.gameState);
                                         inputs.gameState.menuState = {
                                             activeMenu: undefined,
-                                            returnTo: undefined,
+                                            returnTo: [],
                                         };
                                     } catch (error) {
                                         updateState({
@@ -200,7 +201,7 @@ export const GameMultiplayerRooms = defineElement<{
                     listeners: {
                         activate({enabled}) {
                             if (enabled) {
-                                inputs.gameState.menuState = getGameMenuReturnState(
+                                inputs.gameState.menuState = popAnthaMenuState(
                                     inputs.gameState.menuState,
                                 );
                             }

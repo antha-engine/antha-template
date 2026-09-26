@@ -7,7 +7,11 @@ import {
 } from '@antha/engine';
 import {EntityStore2d} from '@antha/entity-2d';
 import {createMockPixi} from '@antha/graphics-2d';
-import {emptyApiAndRoomConnectionState, type ClientId} from '@antha/multiplayer-core';
+import {
+    createMultiplayerPlayerId,
+    emptyApiAndRoomConnectionState,
+    type ClientId,
+} from '@antha/multiplayer-core';
 import {P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
 import {assert, assertWrap, check} from '@augment-vir/assert';
 import {applyBrand, getObjectTypedValues, SeededRandom, type AnyObject} from '@augment-vir/common';
@@ -16,17 +20,16 @@ import {Graphics} from 'pixi.js';
 import {LocalPlayerPosition, type FullGameState, type GameState} from '../game-state/game-state.js';
 import {clampToGameWorld, gameWorldSize} from '../game-state/game-world.js';
 import {type MultiplayerPacket} from '../game-state/multiplayer-packet.js';
-import {createPlayerId} from './player-id.js';
 import {clampPlayer, PlayerEntity, playerRadius} from './player.entity.js';
 
 const localClientId = applyBrand<ClientId>('c_blue');
 
 const playerIds = {
-    blue: createPlayerId({
+    blue: createMultiplayerPlayerId({
         clientId: localClientId,
         playerPosition: LocalPlayerPosition.One,
     }),
-    green: createPlayerId({
+    green: createMultiplayerPlayerId({
         clientId: applyBrand<ClientId>('c_green'),
         playerPosition: LocalPlayerPosition.Two,
     }),
@@ -78,9 +81,8 @@ function createPlayerEntityStore({
     const state = {
         menuState: {
             activeMenu: undefined,
-            returnTo: undefined,
+            returnTo: [],
         },
-        multiplayerLockstepTick: 0,
         players: {},
         saveState: undefined,
         seededRandom: SeededRandom.fromSeed('player collision test'),
@@ -109,7 +111,7 @@ describe('player collisions', () => {
             const playerColors = await Promise.all(
                 getObjectTypedValues(LocalPlayerPosition).map(async (playerPosition, index) => {
                     const player = await entityStore.addEntity(PlayerEntity, {
-                        playerId: createPlayerId({
+                        playerId: createMultiplayerPlayerId({
                             clientId: localClientId,
                             playerPosition,
                         }),

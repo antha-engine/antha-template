@@ -21,7 +21,6 @@ export function createDevelopmentMultiplayerBackendOrigin(frontendHostname: stri
 export function startLocalGame(state: Partial<FullGameState>) {
     const multiplayerController = getMultiplayerController(state);
 
-    state.disableEntityUpdates = false;
     state.multiplayerLockstepTick = 0;
 
     if (multiplayerController.isConnected()) {
@@ -34,10 +33,11 @@ export function startLocalGame(state: Partial<FullGameState>) {
 
     state.menuState = {
         activeMenu: undefined,
-        returnTo: undefined,
+        returnTo: [],
     };
-    spawnInitialLocalPlayer({
-        state,
+    getMultiplayerController(state).act({
+        playerPosition: LocalPlayerPosition.One,
+        type: MultiplayerPacketType.SpawnPlayer,
     });
 }
 
@@ -92,16 +92,4 @@ export async function initializeMultiplayer(state: Partial<FullGameState>) {
     }
 
     return multiplayerController;
-}
-
-/** Spawns the controller-one player for the current multiplayer client. */
-export function spawnInitialLocalPlayer({
-    state,
-}: Readonly<{
-    state: Partial<FullGameState>;
-}>) {
-    getMultiplayerController(state).act({
-        playerPosition: LocalPlayerPosition.One,
-        type: MultiplayerPacketType.SpawnPlayer,
-    });
 }

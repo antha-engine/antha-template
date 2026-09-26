@@ -2,7 +2,12 @@ import {AssetLoader} from '@antha/asset';
 import {AnthaEngine} from '@antha/engine';
 import {EntityStore2d} from '@antha/entity-2d';
 import {createMockPixi} from '@antha/graphics-2d';
-import {emptyApiAndRoomConnectionState, type ClientId} from '@antha/multiplayer-core';
+import {
+    createMultiplayerPlayerId,
+    emptyApiAndRoomConnectionState,
+    MultiplayerControllerClientStatusEvent,
+    type ClientId,
+} from '@antha/multiplayer-core';
 import {
     MultiplayerControllerFrameEvent,
     P2pLockStepMultiplayerController,
@@ -10,18 +15,22 @@ import {
 import {assert, assertWrap} from '@augment-vir/assert';
 import {applyBrand, SeededRandom} from '@augment-vir/common';
 import {describe, it} from '@augment-vir/test';
-import {createPlayerId} from '../player/player-id.js';
 import {PlayerEntity, playerRadius} from '../player/player.entity.js';
 import {LocalPlayerPosition, type FullGameState} from './game-state.js';
 import {multiplayerLockstepMod} from './multiplayer-lockstep.mod.js';
-import {MultiplayerPacketType, type MultiplayerPacket} from './multiplayer-packet.js';
+import {
+    createStateSync,
+    loadStateSync,
+    MultiplayerPacketType,
+    type MultiplayerPacket,
+} from './multiplayer-packet.js';
 
 const playerIds = {
-    blue: createPlayerId({
+    blue: createMultiplayerPlayerId({
         clientId: applyBrand<ClientId>('c_blue'),
         playerPosition: LocalPlayerPosition.One,
     }),
-    green: createPlayerId({
+    green: createMultiplayerPlayerId({
         clientId: applyBrand<ClientId>('c_green'),
         playerPosition: LocalPlayerPosition.One,
     }),
@@ -53,10 +62,9 @@ async function createMultiplayerSimulation(
     const engine = new AnthaEngine<FullGameState>({
         hostElement: document.createElement('div'),
         initState: {
-            disableEntityUpdates: true,
             menuState: {
                 activeMenu: undefined,
-                returnTo: undefined,
+                returnTo: [],
             },
             multiplayerLockstepTick: 0,
             multiplayerP2pLockStep: {
@@ -114,42 +122,104 @@ async function createMultiplayerSimulation(
 
 function createMultiplayerFrameEvent(actions: ReadonlyArray<MultiplayerPacket>) {
     return new MultiplayerControllerFrameEvent<MultiplayerPacket>({
-        detail: actions.map((packet) => {
-            return {
-                packet,
-                sourceClientId: applyBrand<ClientId>('c_blue'),
-            };
-        }),
+        detail: {
+            packets: actions.map((packet) => {
+                return {
+                    packet,
+                    sourceClientId: applyBrand<ClientId>('c_blue'),
+                };
+            }),
+        },
     });
 }
 
 describe(multiplayerLockstepMod.modName, () => {
-    it('applies local frames without running multiplayer entity simulation', async () => {
-        const singleplayerSimulation = await createMultiplayerSimulation({
-            roomId: undefined,
-        });
-        const localSecondPlayerId = createPlayerId({
-            clientId: applyBrand<ClientId>('c_blue'),
-            playerPosition: LocalPlayerPosition.Two,
+    it('removes the players of lost peers', async () => {
+        const simulation = await createMultiplayerSimulation();
+        const lostClientId = applyBrand<ClientId>('c_lost');
+        const lifecyclePackets: MultiplayerPacket[] = [];
+
+        simulation.controller.listen(MultiplayerControllerFrameEvent, ({detail}) => {
+            lifecyclePackets.push(
+                ...detail.packets.map(({packet}) => {
+                    return packet;
+                }),
+            );
         });
 
         try {
-            singleplayerSimulation.engine.dispatch(
-                createMultiplayerFrameEvent([
-                    {
-                        playerPosition: LocalPlayerPosition.Two,
-                        type: MultiplayerPacketType.SpawnPlayer,
+            simulation.engine.dispatch(
+                new MultiplayerControllerClientStatusEvent({
+                    detail: {
+                        lostMember: lostClientId,
                     },
-                ]),
+                }),
             );
+            await simulation.engine.runSingleTick();
+            simulation.controller.runFrame();
+
+            assert.deepEquals(lifecyclePackets, [
+                {
+                    clientId: lostClientId,
+                    type: MultiplayerPacketType.DespawnPlayers,
+                },
+            ]);
+        } finally {
+            simulation.controller.destroy();
+            simulation.entityStore.destroy();
+        }
+    });
+
+    it('loads the host state into a joining peer', async () => {
+        const hostSimulation = await createMultiplayerSimulation();
+        const joiningSimulation = await createMultiplayerSimulation();
+
+        try {
+            hostSimulation.bluePlayer.params.x = 321;
+            hostSimulation.state.seededRandom?.next();
+            joiningSimulation.bluePlayer.immediatelyDestroy();
+
+            await loadStateSync({
+                state: joiningSimulation.state,
+                stateSync: createStateSync(hostSimulation.state),
+            });
+
+            assert.deepEquals(
+                {
+                    entityHash: joiningSimulation.entityStore.hashEntities(),
+                    playerIds: Object.keys(joiningSimulation.state.players || {}),
+                    randomState: joiningSimulation.state.seededRandom?.exportState(),
+                },
+                {
+                    entityHash: hostSimulation.entityStore.hashEntities(),
+                    playerIds: [
+                        playerIds.blue,
+                        playerIds.green,
+                    ],
+                    randomState: hostSimulation.state.seededRandom?.exportState(),
+                },
+            );
+        } finally {
+            hostSimulation.controller.destroy();
+            hostSimulation.entityStore.destroy();
+            joiningSimulation.controller.destroy();
+            joiningSimulation.entityStore.destroy();
+        }
+    });
+
+    it('simulates singleplayer frames', async () => {
+        const singleplayerSimulation = await createMultiplayerSimulation({
+            roomId: undefined,
+        });
+
+        try {
+            singleplayerSimulation.greenPlayer.params.x = 100 + playerRadius;
+            singleplayerSimulation.engine.dispatch(createMultiplayerFrameEvent([]));
             await singleplayerSimulation.engine.runSingleTick();
 
-            assertWrap.isDefined(singleplayerSimulation.state.players?.[localSecondPlayerId]);
-            assert.strictEquals(
-                singleplayerSimulation.entityStore.getEntities(PlayerEntity).size,
-                3,
-            );
-            assert.strictEquals(singleplayerSimulation.state.multiplayerLockstepTick, 0);
+            assert.isBelow(singleplayerSimulation.bluePlayer.params.x, 100);
+            assert.isAbove(singleplayerSimulation.greenPlayer.params.x, 100 + playerRadius);
+            assert.strictEquals(singleplayerSimulation.state.multiplayerLockstepTick, 1);
         } finally {
             singleplayerSimulation.controller.destroy();
             singleplayerSimulation.entityStore.destroy();

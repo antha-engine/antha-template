@@ -1,72 +1,69 @@
-import {defineAnthaMod, ModExecutionTriggerType, type ModExecuteParams} from '@antha/engine';
-import {
-    isMultiplayerRoomConnected,
-    MultiplayerControllerFrameEvent,
-} from '@antha/multiplayer-p2p-lock-step';
-import {awaitedBlockingMap, ensureErrorAndPrependMessage, log} from '@augment-vir/common';
+import {createAnthaMultiplayerP2pLockStepMod} from '@antha/multiplayer-p2p-lock-step';
+import {hashObject} from '@antha/util';
+import {ensureErrorAndPrependMessage, log} from '@augment-vir/common';
 import {type FullGameState} from './game-state.js';
-import {multiplayerPacketHandlers, type MultiplayerPacket} from './multiplayer-packet.js';
+import {
+    createStateSync,
+    loadStateSync,
+    multiplayerPacketHandlers,
+    MultiplayerPacketType,
+    type MultiplayerPacket,
+    type MultiplayerStateForSync,
+} from './multiplayer-packet.js';
 
-const multiplayerFrameDurationMs = 10;
+/** Applies each synchronized multiplayer frame, then runs entity updates for that frame. */
+export const multiplayerLockstepMod = createAnthaMultiplayerP2pLockStepMod<
+    MultiplayerPacket,
+    FullGameState,
+    MultiplayerStateForSync
+>({
+    gameId: 'antha-template',
+    desyncCheck: {
+        interval: {
+            seconds: 1,
+        },
+        createStateHash({state}) {
+            if (!state.entityStore || !state.seededRandom) {
+                return undefined;
+            }
 
-/** Applies each synchronized multiplayer frame before running entity updates. */
-export const multiplayerLockstepMod = defineAnthaMod<FullGameState>({
-    modName: 'multiplayer-lockstep',
-    trigger: {
-        event: MultiplayerControllerFrameEvent,
-        executeImmediately: false,
+            return hashObject([
+                state.entityStore.hashEntities(),
+                state.seededRandom.exportState(),
+            ]);
+        },
     },
-    async execute(executeParams) {
-        const {executionTrigger, state} = executeParams;
-
-        if (executionTrigger.type !== ModExecutionTriggerType.Event) {
-            return;
-        }
-
-        await awaitedBlockingMap(executionTrigger.events, async (event) => {
-            if (!(event instanceof MultiplayerControllerFrameEvent)) {
-                return;
-            }
-
-            const multiplayerFrameEvent: MultiplayerControllerFrameEvent<MultiplayerPacket> = event;
-
-            await awaitedBlockingMap(multiplayerFrameEvent.detail, async (detail) => {
-                try {
-                    await multiplayerPacketHandlers[detail.packet.type]({
-                        detail,
-                        state,
-                    });
-                } catch (error) {
-                    log.error(
-                        ensureErrorAndPrependMessage(
-                            error,
-                            `Failed to handel '${detail.packet.type}' multiplayer packet.`,
-                        ),
-                    );
-                }
+    stateSync: {
+        createStateSync({state}) {
+            return createStateSync(state);
+        },
+        loadStateSync,
+        resyncOnDesync: true,
+    },
+    async handlePacket({packet, state}) {
+        try {
+            await multiplayerPacketHandlers[packet.packet.type]({
+                detail: packet,
+                state,
             });
-
-            if (!isMultiplayerRoomConnected(state)) {
-                return;
-            }
-
-            state.multiplayerLockstepTick = (state.multiplayerLockstepTick || 0) + 1;
-
-            if (state.entityStore) {
-                await state.entityStore.updateAllEntities({
-                    ...executeParams,
-                    currentTick: state.multiplayerLockstepTick,
-                    executionTrigger: {
-                        events: [
-                            multiplayerFrameEvent,
-                        ],
-                        type: ModExecutionTriggerType.Event,
-                    },
-                    msSinceLastExecute: multiplayerFrameDurationMs,
-                    ticksSinceLastExecute: 1,
-                    trigger: undefined,
-                } satisfies ModExecuteParams<FullGameState>);
-            }
-        });
+        } catch (error) {
+            log.error(
+                ensureErrorAndPrependMessage(
+                    error,
+                    `Failed to handle '${packet.packet.type}' multiplayer packet.`,
+                ),
+            );
+        }
+    },
+    handleClientStatus({event, multiplayerController}) {
+        if (multiplayerController.isHost() && 'lostMember' in event.detail) {
+            multiplayerController.act({
+                clientId: event.detail.lostMember,
+                type: MultiplayerPacketType.DespawnPlayers,
+            });
+        }
+    },
+    async runFrameUpdate(frameUpdateParams) {
+        await frameUpdateParams.state.entityStore?.updateAllEntities(frameUpdateParams);
     },
 });

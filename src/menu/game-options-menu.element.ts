@@ -1,4 +1,4 @@
-import {nav} from '@antha/input';
+import {nav, popAnthaMenuState} from '@antha/input';
 import {clamp, getEnumValues} from '@augment-vir/common';
 import {css, defineElement, html, testId} from 'element-vir';
 import {noNativeSpacing} from 'vira';
@@ -7,7 +7,7 @@ import {
     defaultGameMasterVolume,
     GameAudioChannel,
 } from '../audio/game-audio.js';
-import {getGameMenuReturnState, type FullGameState} from '../game-state/game-state.js';
+import {type FullGameState} from '../game-state/game-state.js';
 import {defaultJoystickDeadZone} from '../game-state/save-data.js';
 import {VirGameButton} from './vir-game-button.element.js';
 
@@ -224,7 +224,7 @@ export const GameOptionsMenu = defineElement<{
                                     listeners: {
                                         activate({enabled}) {
                                             if (enabled) {
-                                                inputs.gameState.menuState = getGameMenuReturnState(
+                                                inputs.gameState.menuState = popAnthaMenuState(
                                                     inputs.gameState.menuState,
                                                 );
                                             }

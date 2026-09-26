@@ -1,5 +1,5 @@
 import {type AssetLoader, type AssetLoadSession} from '@antha/asset';
-import {AudioPlayer, createAnthaAudioMod} from '@antha/audio';
+import {AudioPlayer, createAnthaAudioMod, createAnthaBackgroundAudioMod} from '@antha/audio';
 import {type AnthaEngine} from '@antha/engine';
 import {loadAnthaAssets} from '@antha/entity-2d';
 import {createAnthaFpsMod} from '@antha/fps';
@@ -13,21 +13,18 @@ import {
     createAnthaMenuNavMod,
     createAnthaReadRawInputMod,
 } from '@antha/input';
-import {createAnthaMultiplayerP2pLockStepMod} from '@antha/multiplayer-p2p-lock-step';
 import {ensureErrorAndPrependMessage, randomString, SeededRandom} from '@augment-vir/common';
 import {css} from 'element-vir';
-import {gameAudioFilesToLoad} from '../audio/game-audio.js';
-import {gameAudioMod} from '../audio/game-audio.mod.js';
-import {gameMenuMod} from '../menu/game-menu.mod.js';
+import {gameAudio, gameAudioFilesToLoad, GameAudioKey} from '../audio/game-audio.js';
+import {gameMenuMod, gameMenuStateMod} from '../menu/game-menu.mod.js';
 import {PlayerEntity} from '../player/player.entity.js';
 import {defaultBindings} from './default-bindings.js';
 import {deployEnv, DeployEnv} from './deploy-env.js';
-import {entityStoreMod} from './game-entity.mod.js';
+import {updateEntitiesMod} from './game-entity.mod.js';
 import {InputConsumer, type FullGameState} from './game-state.js';
 import {gameUpdateMod} from './game-update.mod.js';
 import {gameWorldSize} from './game-world.js';
 import {multiplayerLockstepMod} from './multiplayer-lockstep.mod.js';
-import {type MultiplayerPacket} from './multiplayer-packet.js';
 import {anthaAutosaveMod, createDefaultGameSaveState, loadSaveDataAsset} from './save-data.js';
 
 async function loadInitialGameAssets({
@@ -110,11 +107,11 @@ export async function bootstrapGame({
     });
     state.saveState = loadedSaveState.saveState;
     state.bindingAssignments = defaultBindings;
+    state.currentBackgroundAudio = gameAudio[GameAudioKey.GameMusic];
     state.menuState = {
         activeMenu: undefined,
-        returnTo: undefined,
+        returnTo: [],
     };
-    state.multiplayerLockstepTick = 0;
     state.players = {};
     state.seededRandom = SeededRandom.fromSeed(randomString());
 
@@ -145,19 +142,17 @@ export async function bootstrapGame({
                 startRawInputConsumer: InputConsumer.Game,
             }),
             createAnthaInputBindingsMod(),
-            entityStoreMod,
-            createAnthaMultiplayerP2pLockStepMod<MultiplayerPacket>({
-                gameId: 'antha-template',
-            }),
+            updateEntitiesMod,
             multiplayerLockstepMod,
             gameUpdateMod,
+            gameMenuStateMod,
             gameMenuMod,
             createAnthaMenuNavMod({
                 allowWrapping: true,
                 alwaysRequireFocused: true,
                 blockPerpendicularNavigation: true,
             }),
-            gameAudioMod,
+            createAnthaBackgroundAudioMod(),
         ],
     };
 }

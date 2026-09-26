@@ -89,12 +89,3 @@ export async function playGameAudio(
         return false;
     });
 }
-
-/** Resumes browser audio after an interaction when the browser requires a user gesture. */
-export function resumeGameAudioContext({
-    audioPlayer,
-}: Readonly<{
-    audioPlayer: AudioPlayer | undefined;
-}>) {
-    void audioPlayer?.audioContext.resume().catch(() => {});
-}

@@ -7,7 +7,7 @@ import {
     MultiplayerControllerFrameEvent,
     P2pLockStepMessageType,
     P2pLockStepMultiplayerController,
-    type FrameEventDetail,
+    type MultiplayerFramePacket,
     type P2pLockStepMessage,
 } from '@antha/multiplayer-p2p-lock-step';
 import {assert, assertWrap} from '@augment-vir/assert';
@@ -143,11 +143,11 @@ describe(MultiplayerPacketType.SpawnPlayer, () => {
             },
             gameId: 'antha-template-local-player-test',
         });
-        const receivedFrames: Array<ReadonlyArray<FrameEventDetail<MultiplayerPacket>>> = [];
+        const receivedFrames: Array<ReadonlyArray<MultiplayerFramePacket<MultiplayerPacket>>> = [];
 
         controller.listen(MultiplayerControllerFrameEvent, ({detail}) => {
-            if (detail.length) {
-                receivedFrames.push(detail);
+            if (detail.packets.length) {
+                receivedFrames.push(detail.packets);
             }
         });
         controller.startSingleplayer();
@@ -185,10 +185,11 @@ describe(MultiplayerPacketType.SpawnPlayer, () => {
             const member = new P2pLockStepMultiplayerController<MultiplayerPacket>({
                 gameId: 'antha-template-p2p-player-test',
             });
-            const receivedFrames: Array<ReadonlyArray<FrameEventDetail<MultiplayerPacket>>> = [];
+            const receivedFrames: Array<ReadonlyArray<MultiplayerFramePacket<MultiplayerPacket>>> =
+                [];
 
             member.listen(MultiplayerControllerFrameEvent, ({detail}) => {
-                receivedFrames.push(detail);
+                receivedFrames.push(detail.packets);
             });
 
             try {
@@ -211,7 +212,7 @@ describe(MultiplayerPacketType.SpawnPlayer, () => {
                     new MultiplayerControllerMessageEvent<P2pLockStepMessage<MultiplayerPacket>>(
                         hostClientId,
                         {
-                            actions: packets.map((packet) => {
+                            packets: packets.map((packet) => {
                                 return {
                                     packet,
                                     sourceClientId: memberClientId,

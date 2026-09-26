@@ -1,8 +1,10 @@
-import {type createAnthaAudioMod} from '@antha/audio';
+import {type createAnthaAudioMod, type createAnthaBackgroundAudioMod} from '@antha/audio';
 import {type AnthaModsState} from '@antha/engine';
 import {
+    type AnthaMenuState,
     type createAnthaInputBindingsMod,
     type createAnthaMenuNavMod,
+    type createAnthaMenuStateMod,
     type createAnthaReadRawInputMod,
 } from '@antha/input';
 import {type ClientId} from '@antha/multiplayer-core';
@@ -10,7 +12,7 @@ import {type createAnthaMultiplayerP2pLockStepMod} from '@antha/multiplayer-p2p-
 import {type SeededRandom} from '@augment-vir/common';
 import {type GameBinding} from '../player/player-binding.js';
 import {type PlayerEntity} from '../player/player.entity.js';
-import {type entityStoreMod} from './game-entity.mod.js';
+import {type updateEntitiesMod} from './game-entity.mod.js';
 import {type MultiplayerPacket} from './multiplayer-packet.js';
 import {type anthaAutosaveMod, type GameSaveState} from './save-data.js';
 
@@ -34,19 +36,7 @@ export enum LocalPlayerPosition {
     Four = '4',
 }
 
-/** Stores the visible overlay and its return destination so menus can navigate back correctly. */
-export type GameMenuState = {
-    activeMenu: GameMenuKey | undefined;
-    returnTo: GameMenuKey | undefined;
-};
-
 /** Creates the state for returning to a menu's parent or leaving menu mode. */
-export function getGameMenuReturnState(menuState: Readonly<GameMenuState> | undefined) {
-    return {
-        activeMenu: menuState?.returnTo,
-        returnTo: undefined,
-    };
-}
 
 /** Connects a player ID to its owner, controller slot, and live entity instance. */
 export type PlayerState = {
@@ -61,8 +51,7 @@ export type PlayerState = {
 
 /** Holds the game-specific data shared by all engine mods. */
 export type GameState = {
-    menuState: GameMenuState;
-    multiplayerLockstepTick: number;
+    menuState: AnthaMenuState<GameMenuKey>;
     players: Record<string, PlayerState>;
     saveState: GameSaveState | undefined;
     seededRandom: SeededRandom;
@@ -73,10 +62,12 @@ export type FullGameState = AnthaModsState<
     [
         typeof anthaAutosaveMod,
         ReturnType<typeof createAnthaAudioMod>,
+        ReturnType<typeof createAnthaBackgroundAudioMod>,
         ReturnType<typeof createAnthaReadRawInputMod>,
         ReturnType<typeof createAnthaInputBindingsMod<GameBinding>>,
-        typeof entityStoreMod,
+        typeof updateEntitiesMod,
         ReturnType<typeof createAnthaMultiplayerP2pLockStepMod<MultiplayerPacket>>,
+        ReturnType<typeof createAnthaMenuStateMod<GameMenuKey, InputConsumer>>,
         ReturnType<typeof createAnthaMenuNavMod>,
     ]
 >;

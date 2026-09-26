@@ -47,7 +47,7 @@ function createGameState({
     return {
         menuState: {
             activeMenu: GameMenuKey.Pause,
-            returnTo: undefined,
+            returnTo: [],
         },
         multiplayerP2pLockStep: {
             connectionState: emptyApiAndRoomConnectionState,
@@ -91,7 +91,7 @@ describe(GamePauseMenu.tagName, () => {
                     isConnected: true,
                     menuState: {
                         activeMenu: undefined,
-                        returnTo: undefined,
+                        returnTo: [],
                     },
                 },
             );

@@ -1,66 +1,71 @@
 import {AnthaEngine} from '@antha/engine';
-import {emptyApiAndRoomConnectionState} from '@antha/multiplayer-core';
-import {P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
+import {getAnthaMenuStateForNavigation} from '@antha/input';
 import {assert} from '@augment-vir/assert';
-import {describe, it} from '@augment-vir/test';
+import {describe, it, itCases} from '@augment-vir/test';
 import {GameMenuKey, InputConsumer, type FullGameState} from '../game-state/game-state.js';
-import {type MultiplayerPacket} from '../game-state/multiplayer-packet.js';
-import {gameMenuMod, getGameMenuStateForNavigation} from './game-menu.mod.js';
+import {gameMenuStateMod} from './game-menu.mod.js';
 
-describe(gameMenuMod.modName, () => {
-    it('opens, returns from, and exits menus with menu navigation controls', () => {
-        assert.deepEquals(
-            [
-                getGameMenuStateForNavigation({
-                    menuExitWasTriggered: false,
-                    menuState: undefined,
-                    openPauseMenuWasTriggered: true,
-                }),
-                getGameMenuStateForNavigation({
-                    menuExitWasTriggered: true,
-                    menuState: {
-                        activeMenu: GameMenuKey.Options,
-                        returnTo: GameMenuKey.Pause,
-                    },
-                    openPauseMenuWasTriggered: false,
-                }),
-                getGameMenuStateForNavigation({
-                    menuExitWasTriggered: false,
-                    menuState: {
-                        activeMenu: GameMenuKey.Pause,
-                        returnTo: undefined,
-                    },
-                    openPauseMenuWasTriggered: true,
-                }),
-                getGameMenuStateForNavigation({
-                    menuExitWasTriggered: true,
-                    menuState: {
-                        activeMenu: GameMenuKey.Pause,
-                        returnTo: undefined,
-                    },
-                    openPauseMenuWasTriggered: false,
-                }),
-            ],
-            [
-                {
+describe(gameMenuStateMod.modName, () => {
+    itCases(getAnthaMenuStateForNavigation, [
+        {
+            it: 'opens the pause menu when no menu is active',
+            input: {
+                menuExitWasTriggered: false,
+                menuState: undefined,
+                openPauseMenuWasTriggered: true,
+                pauseMenu: GameMenuKey.Pause,
+            },
+            expect: {
+                activeMenu: GameMenuKey.Pause,
+                returnTo: [],
+            },
+        },
+        {
+            it: 'returns to the parent menu on back',
+            input: {
+                menuExitWasTriggered: true,
+                menuState: {
+                    activeMenu: GameMenuKey.Options,
+                    returnTo: [GameMenuKey.Pause],
+                },
+                openPauseMenuWasTriggered: false,
+                pauseMenu: GameMenuKey.Pause,
+            },
+            expect: {
+                activeMenu: GameMenuKey.Pause,
+                returnTo: [],
+            },
+        },
+        {
+            it: 'closes the root menu on pause or back',
+            input: {
+                menuExitWasTriggered: false,
+                menuState: {
                     activeMenu: GameMenuKey.Pause,
-                    returnTo: undefined,
+                    returnTo: [],
                 },
-                {
-                    activeMenu: GameMenuKey.Pause,
-                    returnTo: undefined,
-                },
-                {
+                openPauseMenuWasTriggered: true,
+                pauseMenu: GameMenuKey.Pause,
+            },
+            expect: {
+                activeMenu: undefined,
+                returnTo: [],
+            },
+        },
+        {
+            it: 'ignores inactive navigation inputs',
+            input: {
+                menuExitWasTriggered: false,
+                menuState: {
                     activeMenu: undefined,
-                    returnTo: undefined,
+                    returnTo: [],
                 },
-                {
-                    activeMenu: undefined,
-                    returnTo: undefined,
-                },
-            ],
-        );
-    });
+                openPauseMenuWasTriggered: false,
+                pauseMenu: GameMenuKey.Pause,
+            },
+            expect: undefined,
+        },
+    ]);
 
     it('transfers raw input ownership between the game and pause menu', async () => {
         const engine = new AnthaEngine<FullGameState>({
@@ -69,11 +74,11 @@ describe(gameMenuMod.modName, () => {
                 isInMenu: true,
                 menuState: {
                     activeMenu: GameMenuKey.Pause,
-                    returnTo: undefined,
+                    returnTo: [],
                 },
             },
             mods: [
-                gameMenuMod,
+                gameMenuStateMod,
             ],
         });
 
@@ -92,60 +97,21 @@ describe(gameMenuMod.modName, () => {
 
         engine.state.menuState = {
             activeMenu: undefined,
-            returnTo: undefined,
+            returnTo: [],
         };
 
+        await engine.runSingleTick();
         await engine.runSingleTick();
 
         assert.deepEquals(
             {
-                disableEntityUpdates: engine.state.disableEntityUpdates,
                 isInMenu: engine.state.isInMenu,
                 rawInputConsumer: engine.state.rawInputConsumer,
             },
             {
-                disableEntityUpdates: true,
                 isInMenu: false,
                 rawInputConsumer: InputConsumer.Game,
             },
         );
-    });
-
-    it('keeps render-timed entity updates disabled in a multiplayer room', async () => {
-        const controller = new P2pLockStepMultiplayerController<MultiplayerPacket>({
-            gameId: 'game-menu-multiplayer-test',
-        });
-
-        controller.startSingleplayer();
-        Object.defineProperty(controller, 'roomId', {
-            configurable: true,
-            get() {
-                return 'test-room';
-            },
-        });
-        const engine = new AnthaEngine<FullGameState>({
-            hostElement: document.createElement('div'),
-            initState: {
-                menuState: {
-                    activeMenu: undefined,
-                    returnTo: undefined,
-                },
-                multiplayerP2pLockStep: {
-                    connectionState: emptyApiAndRoomConnectionState,
-                    multiplayerController: controller,
-                },
-            },
-            mods: [
-                gameMenuMod,
-            ],
-        });
-
-        try {
-            await engine.runSingleTick();
-
-            assert.isTrue(engine.state.disableEntityUpdates);
-        } finally {
-            controller.destroy();
-        }
     });
 });

@@ -1,17 +1,16 @@
 import {AssetLoader} from '@antha/asset';
 import {EntityStore2d} from '@antha/entity-2d';
 import {createMockPixi} from '@antha/graphics-2d';
-import {emptyApiAndRoomConnectionState} from '@antha/multiplayer-core';
+import {createMultiplayerPlayerId, emptyApiAndRoomConnectionState} from '@antha/multiplayer-core';
 import {
     MultiplayerControllerFrameEvent,
     P2pLockStepMultiplayerController,
-    type FrameEventDetail,
+    type MultiplayerFramePacket,
 } from '@antha/multiplayer-p2p-lock-step';
 import {assert, assertWrap} from '@augment-vir/assert';
 import {wait} from '@augment-vir/common';
 import {describe, it} from '@augment-vir/test';
 import {parseUrl} from 'url-vir';
-import {createPlayerId} from '../player/player-id.js';
 import {PlayerEntity} from '../player/player.entity.js';
 import {LocalPlayerPosition, type FullGameState} from './game-state.js';
 import {MultiplayerPacketType, type MultiplayerPacket} from './multiplayer-packet.js';
@@ -37,11 +36,11 @@ describe(startLocalGame.name, () => {
             },
             players: {},
         };
-        const receivedFrames: Array<ReadonlyArray<FrameEventDetail<MultiplayerPacket>>> = [];
+        const receivedFrames: Array<ReadonlyArray<MultiplayerFramePacket<MultiplayerPacket>>> = [];
 
         controller.listen(MultiplayerControllerFrameEvent, ({detail}) => {
-            if (detail.length) {
-                receivedFrames.push(detail);
+            if (detail.packets.length) {
+                receivedFrames.push(detail.packets);
             }
         });
 
@@ -67,11 +66,9 @@ describe(startLocalGame.name, () => {
             ]);
             assert.deepEquals(
                 {
-                    disableEntityUpdates: gameState.disableEntityUpdates,
                     multiplayerSimulationTick: gameState.multiplayerLockstepTick,
                 },
                 {
-                    disableEntityUpdates: false,
                     multiplayerSimulationTick: 0,
                 },
             );
@@ -84,7 +81,6 @@ describe(startLocalGame.name, () => {
 describe(startMultiplayerGame.name, () => {
     it('resets the multiplayer simulation frame count', () => {
         const gameState: Partial<FullGameState> = {
-            disableEntityUpdates: false,
             multiplayerLockstepTick: 10,
         };
 
@@ -124,7 +120,7 @@ describe(startMultiplayerGame.name, () => {
         controller.startSingleplayer();
         const localClientId = assertWrap.isDefined(controller.getClientId());
         const firstPlayer = await entityStore.addEntity(PlayerEntity, {
-            playerId: createPlayerId({
+            playerId: createMultiplayerPlayerId({
                 clientId: localClientId,
                 playerPosition: LocalPlayerPosition.One,
             }),
@@ -132,14 +128,14 @@ describe(startMultiplayerGame.name, () => {
             y: 200,
         });
         const secondPlayer = await entityStore.addEntity(PlayerEntity, {
-            playerId: createPlayerId({
+            playerId: createMultiplayerPlayerId({
                 clientId: localClientId,
                 playerPosition: LocalPlayerPosition.Two,
             }),
             x: 300,
             y: 400,
         });
-        const receivedFrames: Array<ReadonlyArray<FrameEventDetail<MultiplayerPacket>>> = [];
+        const receivedFrames: Array<ReadonlyArray<MultiplayerFramePacket<MultiplayerPacket>>> = [];
 
         gameState.players = {
             [firstPlayer.params.playerId]: {
@@ -154,8 +150,8 @@ describe(startMultiplayerGame.name, () => {
             },
         };
         controller.listen(MultiplayerControllerFrameEvent, ({detail}) => {
-            if (detail.length) {
-                receivedFrames.push(detail);
+            if (detail.packets.length) {
+                receivedFrames.push(detail.packets);
             }
         });
 

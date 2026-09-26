@@ -1,4 +1,4 @@
-import {nav} from '@antha/input';
+import {nav, pushAnthaMenuState} from '@antha/input';
 import {createNewRoom} from '@antha/multiplayer-core';
 import {isMultiplayerRoomConnected} from '@antha/multiplayer-p2p-lock-step';
 import {randomString, type MaybePromise} from '@augment-vir/common';
@@ -101,17 +101,17 @@ export const GamePauseMenu = defineElement<{
                 onActivate() {
                     inputs.gameState.menuState = {
                         activeMenu: undefined,
-                        returnTo: undefined,
+                        returnTo: [],
                     };
                 },
             },
             {
                 label: 'Options',
                 onActivate() {
-                    inputs.gameState.menuState = {
-                        activeMenu: GameMenuKey.Options,
-                        returnTo: GameMenuKey.Pause,
-                    };
+                    inputs.gameState.menuState = pushAnthaMenuState(
+                        inputs.gameState.menuState,
+                        GameMenuKey.Options,
+                    );
                 },
             },
             ...(isInMultiplayerRoom
@@ -149,7 +149,7 @@ export const GamePauseMenu = defineElement<{
                                   startMultiplayerGame(inputs.gameState);
                                   inputs.gameState.menuState = {
                                       activeMenu: undefined,
-                                      returnTo: undefined,
+                                      returnTo: [],
                                   };
                               } catch (error) {
                                   updateState({
@@ -174,10 +174,10 @@ export const GamePauseMenu = defineElement<{
 
                               try {
                                   await initializeMultiplayer(inputs.gameState);
-                                  inputs.gameState.menuState = {
-                                      activeMenu: GameMenuKey.MultiplayerRooms,
-                                      returnTo: GameMenuKey.Pause,
-                                  };
+                                  inputs.gameState.menuState = pushAnthaMenuState(
+                                      inputs.gameState.menuState,
+                                      GameMenuKey.MultiplayerRooms,
+                                  );
                               } catch (error) {
                                   updateState({
                                       multiplayerError: createMultiplayerError(error),
