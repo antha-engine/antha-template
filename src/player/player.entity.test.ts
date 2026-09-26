@@ -13,11 +13,12 @@ import {
     type ClientId,
 } from '@antha/multiplayer-core';
 import {P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
+import {LocalPlayerPosition} from '@antha/util';
 import {assert, assertWrap, check} from '@augment-vir/assert';
 import {applyBrand, getObjectTypedValues, SeededRandom, type AnyObject} from '@augment-vir/common';
 import {describe, it} from '@augment-vir/test';
 import {Graphics} from 'pixi.js';
-import {LocalPlayerPosition, type FullGameState, type GameState} from '../game-state/game-state.js';
+import {type FullGameState, type GameState} from '../game-state/game-state.js';
 import {clampToGameWorld, gameWorldSize} from '../game-state/game-world.js';
 import {type MultiplayerPacket} from '../game-state/multiplayer-packet.js';
 import {clampPlayer, PlayerEntity, playerRadius} from './player.entity.js';

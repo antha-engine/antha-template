@@ -9,6 +9,7 @@ import {
 } from '@antha/input';
 import {type ClientId} from '@antha/multiplayer-core';
 import {type createAnthaMultiplayerP2pLockStepMod} from '@antha/multiplayer-p2p-lock-step';
+import {type LocalPlayerPosition} from '@antha/util';
 import {type SeededRandom} from '@augment-vir/common';
 import {type GameBinding} from '../player/player-binding.js';
 import {type PlayerEntity} from '../player/player.entity.js';
@@ -28,20 +29,10 @@ export enum GameMenuKey {
     Pause = 'pause',
 }
 
-/** Gives each local controller a stable player slot for bindings and player IDs. */
-export enum LocalPlayerPosition {
-    One = '1',
-    Two = '2',
-    Three = '3',
-    Four = '4',
-}
-
-/** Creates the state for returning to a menu's parent or leaving menu mode. */
-
 /** Connects a player ID to its owner, controller slot, and live entity instance. */
 export type PlayerState = {
     /**
-     * Ths host that this player is on. A single client will contain multiple player positions and
+     * The host that this player is on. A single client will contain multiple player positions and
      * entities when local joining is used.
      */
     clientId: ClientId;

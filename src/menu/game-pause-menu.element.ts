@@ -1,4 +1,4 @@
-import {nav, pushAnthaMenuState} from '@antha/input';
+import {closeAnthaMenus, nav, pushAnthaMenuState} from '@antha/input';
 import {createNewRoom} from '@antha/multiplayer-core';
 import {isMultiplayerRoomConnected} from '@antha/multiplayer-p2p-lock-step';
 import {randomString, type MaybePromise} from '@augment-vir/common';
@@ -99,10 +99,7 @@ export const GamePauseMenu = defineElement<{
                 autoFocus: true,
                 label: 'Resume',
                 onActivate() {
-                    inputs.gameState.menuState = {
-                        activeMenu: undefined,
-                        returnTo: [],
-                    };
+                    inputs.gameState.menuState = closeAnthaMenus();
                 },
             },
             {
@@ -147,10 +144,7 @@ export const GamePauseMenu = defineElement<{
                                       }),
                                   );
                                   startMultiplayerGame(inputs.gameState);
-                                  inputs.gameState.menuState = {
-                                      activeMenu: undefined,
-                                      returnTo: [],
-                                  };
+                                  inputs.gameState.menuState = closeAnthaMenus();
                               } catch (error) {
                                   updateState({
                                       multiplayerError: createMultiplayerError(error),

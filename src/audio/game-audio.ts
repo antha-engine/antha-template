@@ -70,9 +70,7 @@ export const gameAudio = {
 >;
 
 /** Lists every audio asset for startup loading so playback has no missing-file surprises. */
-export const gameAudioFilesToLoad = getObjectTypedValues(gameAudio).map((audio) => {
-    return audio;
-});
+export const gameAudioFilesToLoad = getObjectTypedValues(gameAudio);
 
 /** Plays a named sound when audio is available, keeping entity code independent of file setup. */
 export async function playGameAudio(

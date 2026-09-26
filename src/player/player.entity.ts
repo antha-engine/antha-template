@@ -6,21 +6,20 @@ import {
     type ViewCreation2d,
 } from '@antha/entity-2d';
 import {Graphics} from '@antha/graphics-2d';
+import {defaultPlayerGamepads} from '@antha/input';
 import {
     extractMultiplayerPlayerIdParts,
     multiplayerPlayerIdShape,
     type MultiplayerPlayerId,
 } from '@antha/multiplayer-core';
-import {selectItemByHash} from '@antha/util';
+import {LocalPlayerPosition, selectItemByHash} from '@antha/util';
 import {assertWrap} from '@augment-vir/assert';
 import {clamp, getObjectTypedValues, type AtLeastTuple, type Coords} from '@augment-vir/common';
 import {Circle} from 'detect-collisions';
 import {getGamepads} from 'input-device-handler';
 import {intersectShape} from 'object-shape-tester';
 import {GameAudioKey, playGameAudio} from '../audio/game-audio.js';
-import {playerGamepadDeviceKeys} from '../game-state/default-bindings.js';
 import {defineEntity} from '../game-state/game-entity.mod.js';
-import {LocalPlayerPosition} from '../game-state/game-state.js';
 import {clampToGameWorld} from '../game-state/game-world.js';
 
 export const playerRadius = 18;
@@ -71,16 +70,14 @@ function selectPlayerColor({playerId}: Readonly<{playerId: MultiplayerPlayerId}>
     const playerIdParts = extractMultiplayerPlayerIdParts({
         playerId,
     });
-    const playerPosition = assertWrap.isEnumValue(
-        playerIdParts.playerPosition,
-        LocalPlayerPosition,
-    );
     const firstColor = selectItemByHash({
         items: playerColorPalette,
         key: playerIdParts.clientId,
     });
     const firstColorIndex = playerColorPalette.indexOf(firstColor);
-    const playerPositionIndex = getObjectTypedValues(LocalPlayerPosition).indexOf(playerPosition);
+    const playerPositionIndex = getObjectTypedValues(LocalPlayerPosition).indexOf(
+        playerIdParts.playerPosition,
+    );
 
     return assertWrap.isDefined(
         playerColorPalette[(firstColorIndex + playerPositionIndex) % playerColorPalette.length],
@@ -264,16 +261,12 @@ export class PlayerEntity extends defineEntity({
         const playerIdParts = extractMultiplayerPlayerIdParts({
             playerId: this.params.playerId,
         });
-        const playerPosition = assertWrap.isEnumValue(
-            playerIdParts.playerPosition,
-            LocalPlayerPosition,
-        );
 
         if (!localClientId || playerIdParts.clientId !== localClientId) {
             return;
         }
 
-        const gamepad = getGamepads()[playerGamepadDeviceKeys[playerPosition]];
+        const gamepad = getGamepads()[defaultPlayerGamepads[playerIdParts.playerPosition]];
 
         if (!gamepad?.vibrationActuator) {
             return;

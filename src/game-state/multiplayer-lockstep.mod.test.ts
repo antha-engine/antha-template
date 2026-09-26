@@ -12,11 +12,12 @@ import {
     MultiplayerControllerFrameEvent,
     P2pLockStepMultiplayerController,
 } from '@antha/multiplayer-p2p-lock-step';
+import {LocalPlayerPosition} from '@antha/util';
 import {assert, assertWrap} from '@augment-vir/assert';
 import {applyBrand, SeededRandom} from '@augment-vir/common';
 import {describe, it} from '@augment-vir/test';
 import {PlayerEntity, playerRadius} from '../player/player.entity.js';
-import {LocalPlayerPosition, type FullGameState} from './game-state.js';
+import {type FullGameState} from './game-state.js';
 import {multiplayerLockstepMod} from './multiplayer-lockstep.mod.js';
 import {
     createStateSync,
@@ -66,7 +67,6 @@ async function createMultiplayerSimulation(
                 activeMenu: undefined,
                 returnTo: [],
             },
-            multiplayerLockstepTick: 0,
             multiplayerP2pLockStep: {
                 connectionState: emptyApiAndRoomConnectionState,
                 multiplayerController: controller,
@@ -219,7 +219,7 @@ describe(multiplayerLockstepMod.modName, () => {
 
             assert.isBelow(singleplayerSimulation.bluePlayer.params.x, 100);
             assert.isAbove(singleplayerSimulation.greenPlayer.params.x, 100 + playerRadius);
-            assert.strictEquals(singleplayerSimulation.state.multiplayerLockstepTick, 1);
+            assert.strictEquals(singleplayerSimulation.controller.frameCount, 1);
         } finally {
             singleplayerSimulation.controller.destroy();
             singleplayerSimulation.entityStore.destroy();
@@ -255,7 +255,7 @@ describe(multiplayerLockstepMod.modName, () => {
                     randomState: assertWrap
                         .isDefined(batchedSimulation.state.seededRandom)
                         .exportState(),
-                    simulationTick: batchedSimulation.state.multiplayerLockstepTick,
+                    simulationTick: batchedSimulation.controller.frameCount,
                 },
                 {
                     bluePlayer: separateSimulation.bluePlayer.params,
@@ -263,13 +263,13 @@ describe(multiplayerLockstepMod.modName, () => {
                     randomState: assertWrap
                         .isDefined(separateSimulation.state.seededRandom)
                         .exportState(),
-                    simulationTick: separateSimulation.state.multiplayerLockstepTick,
+                    simulationTick: separateSimulation.controller.frameCount,
                 },
             );
             assert.deepEquals(
                 [
-                    batchedSimulation.state.multiplayerLockstepTick,
-                    separateSimulation.state.multiplayerLockstepTick,
+                    batchedSimulation.controller.frameCount,
+                    separateSimulation.controller.frameCount,
                 ],
                 [
                     2,

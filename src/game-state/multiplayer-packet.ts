@@ -5,7 +5,7 @@ import {
     type ClientId,
 } from '@antha/multiplayer-core';
 import {type MultiplayerFramePacket} from '@antha/multiplayer-p2p-lock-step';
-import {assertWrap} from '@augment-vir/assert';
+import {type LocalPlayerPosition} from '@antha/util';
 import {
     filterObject,
     getObjectTypedValues,
@@ -16,16 +16,8 @@ import {
     type SeededRandomState,
 } from '@augment-vir/common';
 import {clampPlayer, PlayerEntity} from '../player/player.entity.js';
-import {LocalPlayerPosition, type FullGameState} from './game-state.js';
+import {type FullGameState} from './game-state.js';
 import {gameWorldSize} from './game-world.js';
-
-/** Lists controller slots that can create local players during a session. */
-export const allLocalPlayerPositions = [
-    LocalPlayerPosition.One,
-    LocalPlayerPosition.Two,
-    LocalPlayerPosition.Three,
-    LocalPlayerPosition.Four,
-] as const;
 
 export enum MultiplayerPacketType {
     /** Removes every player owned by a peer has left the session. */
@@ -105,10 +97,7 @@ export async function loadStateSync({
                     {
                         clientId: playerIdParts.clientId,
                         playerEntity,
-                        playerPosition: assertWrap.isEnumValue(
-                            playerIdParts.playerPosition,
-                            LocalPlayerPosition,
-                        ),
+                        playerPosition: playerIdParts.playerPosition,
                     },
                 ] as const;
             }),

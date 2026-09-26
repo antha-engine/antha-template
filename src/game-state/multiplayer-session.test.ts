@@ -7,15 +7,14 @@ import {
     P2pLockStepMultiplayerController,
     type MultiplayerFramePacket,
 } from '@antha/multiplayer-p2p-lock-step';
+import {LocalPlayerPosition} from '@antha/util';
 import {assert, assertWrap} from '@augment-vir/assert';
 import {wait} from '@augment-vir/common';
 import {describe, it} from '@augment-vir/test';
-import {parseUrl} from 'url-vir';
 import {PlayerEntity} from '../player/player.entity.js';
-import {LocalPlayerPosition, type FullGameState} from './game-state.js';
+import {type FullGameState} from './game-state.js';
 import {MultiplayerPacketType, type MultiplayerPacket} from './multiplayer-packet.js';
 import {
-    createDevelopmentMultiplayerBackendOrigin,
     createMultiplayerError,
     startLocalGame,
     startMultiplayerGame,
@@ -64,14 +63,6 @@ describe(startLocalGame.name, () => {
                     },
                 ],
             ]);
-            assert.deepEquals(
-                {
-                    multiplayerSimulationTick: gameState.multiplayerLockstepTick,
-                },
-                {
-                    multiplayerSimulationTick: 0,
-                },
-            );
         } finally {
             controller.destroy();
         }
@@ -79,23 +70,6 @@ describe(startLocalGame.name, () => {
 });
 
 describe(startMultiplayerGame.name, () => {
-    it('resets the multiplayer simulation frame count', () => {
-        const gameState: Partial<FullGameState> = {
-            multiplayerLockstepTick: 10,
-        };
-
-        startMultiplayerGame(gameState);
-
-        assert.deepEquals(
-            {
-                multiplayerSimulationTick: gameState.multiplayerLockstepTick,
-            },
-            {
-                multiplayerSimulationTick: 0,
-            },
-        );
-    });
-
     it('queues every existing local player', async () => {
         const controller = new P2pLockStepMultiplayerController<MultiplayerPacket>({
             frameDuration: {
@@ -184,23 +158,6 @@ describe(startMultiplayerGame.name, () => {
             controller.destroy();
             entityStore.destroy();
         }
-    });
-});
-
-describe(createDevelopmentMultiplayerBackendOrigin.name, () => {
-    it('uses the frontend hostname with the local multiplayer server port', () => {
-        const backendUrl = parseUrl(createDevelopmentMultiplayerBackendOrigin('192.0.2.10'));
-
-        assert.deepEquals(
-            {
-                hostname: backendUrl.hostname,
-                port: backendUrl.port,
-            },
-            {
-                hostname: '192.0.2.10',
-                port: '9348',
-            },
-        );
     });
 });
 

@@ -1,27 +1,22 @@
+import {closeAnthaMenus} from '@antha/input';
 import {defaultMultiplayerApiOrigin} from '@antha/multiplayer-core';
+import {LocalPlayerPosition} from '@antha/util';
 import {ensureErrorAndPrependMessage, getObjectTypedValues} from '@augment-vir/common';
 import {buildUrl} from 'url-vir';
 import {DeployEnv, deployEnv} from './deploy-env.js';
-import {LocalPlayerPosition, type FullGameState} from './game-state.js';
+import {type FullGameState} from './game-state.js';
 import {MultiplayerPacketType, type MultiplayerPacket} from './multiplayer-packet.js';
 
 const multiplayerBackendOriginByDeployEnv: Readonly<Record<DeployEnv, string>> = {
-    [DeployEnv.Dev]: createDevelopmentMultiplayerBackendOrigin(globalThis.location.hostname),
+    [DeployEnv.Dev]: buildUrl(defaultMultiplayerApiOrigin, {
+        hostname: globalThis.location.hostname,
+    }).origin,
     [DeployEnv.Prod]: 'https://backend.mp.electrovir.com',
 };
-
-/** Replaces the local backend host with the domain serving this development frontend. */
-export function createDevelopmentMultiplayerBackendOrigin(frontendHostname: string) {
-    return buildUrl(defaultMultiplayerApiOrigin, {
-        hostname: frontendHostname,
-    }).origin;
-}
 
 /** Starts a fresh local session so players can restart without a room connection. */
 export function startLocalGame(state: Partial<FullGameState>) {
     const multiplayerController = getMultiplayerController(state);
-
-    state.multiplayerLockstepTick = 0;
 
     if (multiplayerController.isConnected()) {
         multiplayerController.leaveRoom();
@@ -31,10 +26,7 @@ export function startLocalGame(state: Partial<FullGameState>) {
     state.players = {};
     multiplayerController.startSingleplayer();
 
-    state.menuState = {
-        activeMenu: undefined,
-        returnTo: [],
-    };
+    state.menuState = closeAnthaMenus();
     getMultiplayerController(state).act({
         playerPosition: LocalPlayerPosition.One,
         type: MultiplayerPacketType.SpawnPlayer,
@@ -43,8 +35,6 @@ export function startLocalGame(state: Partial<FullGameState>) {
 
 /** Queues existing local players for the multiplayer session. */
 export function startMultiplayerGame(state: Partial<FullGameState>) {
-    state.multiplayerLockstepTick = 0;
-
     const localClientId = state.multiplayerP2pLockStep?.multiplayerController.getClientId();
     const spawnLocalPlayerPackets = localClientId
         ? getObjectTypedValues(state.players || {})

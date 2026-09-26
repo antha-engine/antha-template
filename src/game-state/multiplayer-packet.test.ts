@@ -10,14 +10,11 @@ import {
     type MultiplayerFramePacket,
     type P2pLockStepMessage,
 } from '@antha/multiplayer-p2p-lock-step';
+import {LocalPlayerPosition} from '@antha/util';
 import {assert, assertWrap} from '@augment-vir/assert';
-import {wait, type MaybePromise} from '@augment-vir/common';
+import {getEnumValues, wait, type MaybePromise} from '@augment-vir/common';
 import {describe, it} from '@augment-vir/test';
-import {
-    allLocalPlayerPositions,
-    MultiplayerPacketType,
-    type MultiplayerPacket,
-} from './multiplayer-packet.js';
+import {MultiplayerPacketType, type MultiplayerPacket} from './multiplayer-packet.js';
 
 class TestDataChannel extends EventTarget {
     public close() {}
@@ -127,7 +124,7 @@ async function withMockPeerConnection(callback: () => MaybePromise<void>) {
 }
 
 function createSpawnPackets() {
-    return allLocalPlayerPositions.map((playerPosition) => {
+    return getEnumValues(LocalPlayerPosition).map((playerPosition) => {
         return {
             playerPosition,
             type: MultiplayerPacketType.SpawnPlayer,

@@ -1,14 +1,12 @@
 import {defineAnthaMod} from '@antha/engine';
-import {MenuNavBinding} from '@antha/input';
+import {markBindingActed, MenuNavBinding} from '@antha/input';
 import {createMultiplayerPlayerId, type ClientId} from '@antha/multiplayer-core';
 import {type P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
+import {LocalPlayerPosition} from '@antha/util';
+import {getEnumValues} from '@augment-vir/common';
 import {moveLocalPlayers} from '../player/player-movement.js';
-import {LocalPlayerPosition, type FullGameState} from './game-state.js';
-import {
-    allLocalPlayerPositions,
-    MultiplayerPacketType,
-    type MultiplayerPacket,
-} from './multiplayer-packet.js';
+import {type FullGameState} from './game-state.js';
+import {MultiplayerPacketType, type MultiplayerPacket} from './multiplayer-packet.js';
 import {startLocalGame} from './multiplayer-session.js';
 
 function addNewLocalPlayers({
@@ -20,7 +18,7 @@ function addNewLocalPlayers({
     multiplayerController: P2pLockStepMultiplayerController<MultiplayerPacket>;
     state: Partial<FullGameState>;
 }>) {
-    const newLocalPlayerPositions = allLocalPlayerPositions.filter((playerPosition) => {
+    const newLocalPlayerPositions = getEnumValues(LocalPlayerPosition).filter((playerPosition) => {
         const menuEnterBinding = state.activeBindings?.[playerPosition]?.[MenuNavBinding.MenuEnter];
 
         if (
@@ -36,8 +34,7 @@ function addNewLocalPlayers({
         ) {
             return false;
         } else {
-            menuEnterBinding.actCount = 1;
-            menuEnterBinding.lastActDuration = menuEnterBinding.holdDuration;
+            markBindingActed(menuEnterBinding);
 
             return true;
         }

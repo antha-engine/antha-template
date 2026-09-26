@@ -9,6 +9,7 @@ import {
     createVirtualViewportPixiOptions,
 } from '@antha/graphics-2d';
 import {
+    closeAnthaMenus,
     createAnthaInputBindingsMod,
     createAnthaMenuNavMod,
     createAnthaReadRawInputMod,
@@ -108,10 +109,7 @@ export async function bootstrapGame({
     state.saveState = loadedSaveState.saveState;
     state.bindingAssignments = defaultBindings;
     state.currentBackgroundAudio = gameAudio[GameAudioKey.GameMusic];
-    state.menuState = {
-        activeMenu: undefined,
-        returnTo: [],
-    };
+    state.menuState = closeAnthaMenus();
     state.players = {};
     state.seededRandom = SeededRandom.fromSeed(randomString());
 
