@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Antha Template</title>
+        <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0" />
+        <link rel="stylesheet" type="text/css" href="/antha-template/index.css" />
+      <script type="module" crossorigin src="/antha-template/assets/index-jVn2sd6V.js"></script>
+      <link rel="modulepreload" crossorigin href="/antha-template/assets/rolldown-runtime-hePW80VL.js">
+      <link rel="modulepreload" crossorigin href="/antha-template/assets/game-world-BpFq_hvc.js">
+    </head>
+    <body>
+        <vir-app>
+            <div class="loading-placeholder">
+                <span class="loading-placeholder-text">
+                    Loading
+                    <span class="loading-placeholder-dots">&nbsp;&nbsp;&nbsp;</span>
+                </span>
+                <div>
+                    <span class="loading-placeholder-current-resource-name">&nbsp;</span>
+                    <div class="loading-placeholder-progress-track">
+                        <div class="loading-placeholder-progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </vir-app>
+        <script>
+            function scaleLoadingPlaceholder() {
+                const loadingPlaceholder = document.querySelector('.loading-placeholder');
+
+                if (!(loadingPlaceholder instanceof HTMLElement)) {
+                    return;
+                }
+
+                const scale = window.innerWidth / 1920;
+
+                loadingPlaceholder.style.height = `${100 / scale}%`;
+                loadingPlaceholder.style.transform = `scale(${scale})`;
+                loadingPlaceholder.style.transformOrigin = 'top left';
+                loadingPlaceholder.style.width = `${100 / scale}%`;
+            }
+
+            window.addEventListener('resize', scaleLoadingPlaceholder);
+            scaleLoadingPlaceholder();
+        </script>
+    </body>
+</html>
