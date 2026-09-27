@@ -15,7 +15,7 @@ body {
     flex-direction: column;
     font-family: sans-serif;
     gap: 24px;
-    inset: 0 auto auto 0;
+    inset: 0;
     justify-content: center;
     opacity: 1;
     position: fixed;

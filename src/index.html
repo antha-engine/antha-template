@@ -29,12 +29,10 @@
                     return;
                 }
 
-                const scale = window.innerWidth / 1920;
-
-                loadingPlaceholder.style.height = `${100 / scale}%`;
-                loadingPlaceholder.style.transform = `scale(${scale})`;
-                loadingPlaceholder.style.transformOrigin = 'top left';
-                loadingPlaceholder.style.width = `${100 / scale}%`;
+                /** Matches the scaling in `@antha/asset`'s `AnthaAssetLoadingScreen`. */
+                loadingPlaceholder.style.zoom = String(
+                    Math.min(window.innerWidth / 1920, window.innerHeight / 1080),
+                );
             }
 
             window.addEventListener('resize', scaleLoadingPlaceholder);
