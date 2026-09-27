@@ -1,9 +1,5 @@
 import {NavController} from '@antha/input';
-import {
-    createMockRoomHandlerServerApiClient,
-    createNewRoom,
-    emptyApiAndRoomConnectionState,
-} from '@antha/multiplayer-core';
+import {createMultiplayerId, emptyApiAndRoomConnectionState} from '@antha/multiplayer-core';
 import {P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
 import {assert, assertWrap} from '@augment-vir/assert';
 import {describe, it, testWeb} from '@augment-vir/test';
@@ -106,19 +102,11 @@ describe(GamePauseMenu.tagName, () => {
         const multiplayerController = new P2pLockStepMultiplayerController<MultiplayerPacket>({
             gameId: 'mock',
         });
-        const mockApiClient = createMockRoomHandlerServerApiClient();
+        Object.defineProperty(multiplayerController, 'roomId', {
+            value: createMultiplayerId.room(),
+        });
 
         try {
-            await multiplayerController.initMultiplayer({
-                backendOrigin: mockApiClient.baseUrl,
-                multiplayerApiClient: mockApiClient,
-            });
-            await multiplayerController.joinOrCreateRoom(
-                createNewRoom({
-                    roomName: 'Game pause menu test room',
-                }),
-            );
-
             const renderedElement = await testWeb.render(html`
                 <${GamePauseMenu.assign({
                     gameState: createGameState({

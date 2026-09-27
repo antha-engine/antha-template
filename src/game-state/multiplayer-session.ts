@@ -1,5 +1,8 @@
 import {closeAnthaMenus} from '@antha/input';
-import {defaultMultiplayerApiOrigin} from '@antha/multiplayer-core';
+import {
+    defaultMultiplayerApiOrigin,
+    type MultiplayerConnectionTimeoutOptions,
+} from '@antha/multiplayer-core';
 import {LocalPlayerPosition} from '@antha/util';
 import {ensureErrorAndPrependMessage, getObjectTypedValues} from '@augment-vir/common';
 import {buildUrl} from 'url-vir';
@@ -12,6 +15,13 @@ const multiplayerBackendOriginByDeployEnv: Readonly<Record<DeployEnv, string>> =
         hostname: globalThis.location.hostname,
     }).origin,
     [DeployEnv.Prod]: 'https://backend.mp.electrovir.com',
+};
+
+/** Keeps a failing multiplayer connection from spinning forever. */
+export const multiplayerConnectionTimeoutOptions: MultiplayerConnectionTimeoutOptions = {
+    timeout: {
+        seconds: 30,
+    },
 };
 
 /** Starts a fresh local session so players can restart without a room connection. */
@@ -78,6 +88,7 @@ export async function initializeMultiplayer(state: Partial<FullGameState>) {
             roomUpdateInterval: {
                 seconds: 1,
             },
+            ...multiplayerConnectionTimeoutOptions,
         });
     }
 

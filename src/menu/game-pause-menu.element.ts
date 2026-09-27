@@ -8,6 +8,7 @@ import {GameMenuKey, type FullGameState} from '../game-state/game-state.js';
 import {
     createMultiplayerError,
     initializeMultiplayer,
+    multiplayerConnectionTimeoutOptions,
     startLocalGame,
     startMultiplayerGame,
 } from '../game-state/multiplayer-session.js';
@@ -142,6 +143,7 @@ export const GamePauseMenu = defineElement<{
                                               randomString(4),
                                           ].join(' '),
                                       }),
+                                      multiplayerConnectionTimeoutOptions,
                                   );
                                   startMultiplayerGame(inputs.gameState);
                                   inputs.gameState.menuState = closeAnthaMenus();

@@ -7,6 +7,7 @@ import {type FullGameState} from '../game-state/game-state.js';
 import {
     createMultiplayerError,
     initializeMultiplayer,
+    multiplayerConnectionTimeoutOptions,
     startMultiplayerGame,
 } from '../game-state/multiplayer-session.js';
 import {VirGameButton} from './vir-game-button.element.js';
@@ -159,11 +160,14 @@ export const GameMultiplayerRooms = defineElement<{
                                             inputs.gameState,
                                         );
 
-                                        await multiplayerController.joinOrCreateRoom({
-                                            roomId: room.roomId,
-                                            roomName: room.roomName,
-                                            roomPassword: '',
-                                        });
+                                        await multiplayerController.joinOrCreateRoom(
+                                            {
+                                                roomId: room.roomId,
+                                                roomName: room.roomName,
+                                                roomPassword: '',
+                                            },
+                                            multiplayerConnectionTimeoutOptions,
+                                        );
                                         startMultiplayerGame(inputs.gameState);
                                         inputs.gameState.menuState = closeAnthaMenus();
                                     } catch (error) {
