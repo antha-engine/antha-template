@@ -4,7 +4,7 @@ import {DeployEnv, detectDeployEnv} from './deploy-env.js';
 
 describe(detectDeployEnv.name, () => {
     it('detects the production frontend domain', () => {
-        assert.strictEquals(detectDeployEnv('electrovir.github.io'), DeployEnv.Prod);
+        assert.strictEquals(detectDeployEnv('antha-engine.github.io'), DeployEnv.Prod);
     });
 
     it('treats every other frontend domain as development', () => {
