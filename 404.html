@@ -4,9 +4,9 @@
         <title>Antha Template</title>
         <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0" />
         <link rel="stylesheet" type="text/css" href="/antha-template/index.css" />
-      <script type="module" crossorigin src="/antha-template/assets/index-BiPybiL7.js"></script>
+      <script type="module" crossorigin src="/antha-template/assets/index-DO4WI78O.js"></script>
       <link rel="modulepreload" crossorigin href="/antha-template/assets/rolldown-runtime-hePW80VL.js">
-      <link rel="modulepreload" crossorigin href="/antha-template/assets/game-world-DnNgku9X.js">
+      <link rel="modulepreload" crossorigin href="/antha-template/assets/game-world-OmVqljBd.js">
     </head>
     <body>
         <vir-app>
@@ -31,12 +31,10 @@
                     return;
                 }
 
-                const scale = window.innerWidth / 1920;
-
-                loadingPlaceholder.style.height = `${100 / scale}%`;
-                loadingPlaceholder.style.transform = `scale(${scale})`;
-                loadingPlaceholder.style.transformOrigin = 'top left';
-                loadingPlaceholder.style.width = `${100 / scale}%`;
+                /** Matches the scaling in `@antha/asset`'s `AnthaAssetLoadingScreen`. */
+                loadingPlaceholder.style.zoom = String(
+                    Math.min(window.innerWidth / 1920, window.innerHeight / 1080),
+                );
             }
 
             window.addEventListener('resize', scaleLoadingPlaceholder);
