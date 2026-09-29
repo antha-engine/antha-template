@@ -16,7 +16,7 @@ export function moveLocalPlayers({
     msSinceLastExecute: number;
     state: Partial<FullGameState>;
 }>) {
-    if (state.menuState?.activeMenu) {
+    if (state.menuState) {
         return;
     } else if (!state.multiplayerP2pLockStep) {
         throw new Error('Cannot queue local movement: missing multiplayer mod.');

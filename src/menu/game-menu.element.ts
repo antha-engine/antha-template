@@ -14,7 +14,7 @@ export const GameMenu = defineElement<{
     state({inputs}) {
         return {
             cleanup: undefined as undefined | EmptyFunction,
-            activeMenu: inputs.gameState.menuState?.activeMenu,
+            activeMenu: inputs.gameState.menuState?.menuHistory.at(-1),
         };
     },
     hostClasses: {
@@ -47,12 +47,8 @@ export const GameMenu = defineElement<{
     init({host, inputs, updateState}) {
         updateState({
             cleanup: listenToObject(inputs.gameState, 'menuState', (menuState) => {
-                if (!menuState) {
-                    return;
-                }
-
                 updateState({
-                    activeMenu: menuState.activeMenu,
+                    activeMenu: menuState?.menuHistory.at(-1),
                 });
                 host.requestUpdate();
             }),

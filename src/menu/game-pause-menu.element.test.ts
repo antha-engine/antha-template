@@ -1,11 +1,15 @@
 import {NavController} from '@antha/input';
 import {createMultiplayerId, emptyApiAndRoomConnectionState} from '@antha/multiplayer-core';
-import {P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
+import {
+    MultiplayerControllerFrameEvent,
+    P2pLockStepMultiplayerController,
+} from '@antha/multiplayer-p2p-lock-step';
+import {LocalPlayerPosition} from '@antha/util';
 import {assert, assertWrap} from '@augment-vir/assert';
 import {describe, it, testWeb} from '@augment-vir/test';
 import {html, testIdSelector} from 'element-vir';
 import {GameMenuKey, type FullGameState} from '../game-state/game-state.js';
-import {type MultiplayerPacket} from '../game-state/multiplayer-packet.js';
+import {MultiplayerPacketType, type MultiplayerPacket} from '../game-state/multiplayer-packet.js';
 import {GamePauseMenu} from './game-pause-menu.element.js';
 import {VirGameButton} from './vir-game-button.element.js';
 
@@ -42,8 +46,10 @@ function createGameState({
 }>): Pick<FullGameState, 'menuState' | 'multiplayerP2pLockStep' | 'navController' | 'players'> {
     return {
         menuState: {
-            activeMenu: GameMenuKey.Pause,
-            returnTo: [],
+            menuHistory: [
+                GameMenuKey.Pause,
+            ],
+            openedBy: undefined,
         },
         multiplayerP2pLockStep: {
             connectionState: emptyApiAndRoomConnectionState,
@@ -85,10 +91,7 @@ describe(GamePauseMenu.tagName, () => {
                 },
                 {
                     isConnected: true,
-                    menuState: {
-                        activeMenu: undefined,
-                        returnTo: [],
-                    },
+                    menuState: undefined,
                 },
             );
             assert.strictEquals(restartButton.textContent.trim(), 'Restart');
@@ -132,6 +135,86 @@ describe(GamePauseMenu.tagName, () => {
                     hasHostButton: false,
                     hasJoinButton: false,
                     hasLeaveButton: true,
+                },
+            );
+        } finally {
+            multiplayerController.destroy();
+            testWeb.cleanupRender();
+        }
+    });
+
+    it('drops out a non-first local player instead of restarting', async () => {
+        const multiplayerController = new P2pLockStepMultiplayerController<MultiplayerPacket>({
+            gameId: 'game-pause-menu-test',
+        });
+        const gameState: ReturnType<typeof createGameState> = {
+            ...createGameState({
+                multiplayerController,
+            }),
+            menuState: {
+                menuHistory: [
+                    GameMenuKey.Pause,
+                ],
+                openedBy: {
+                    activeBinding: {
+                        actCount: 1,
+                        holdDuration: {
+                            milliseconds: 0,
+                        },
+                        lastActDuration: {
+                            milliseconds: 0,
+                        },
+                        rawInputs: [],
+                        value: 1,
+                    },
+                    playerPosition: LocalPlayerPosition.Two,
+                },
+            },
+        };
+        const sentPackets: MultiplayerPacket[] = [];
+
+        multiplayerController.listen(MultiplayerControllerFrameEvent, ({detail}) => {
+            sentPackets.push(
+                ...detail.packets.map(({packet}) => {
+                    return packet;
+                }),
+            );
+        });
+        multiplayerController.startSingleplayer();
+
+        try {
+            const renderedElement = await testWeb.render(html`
+                <${GamePauseMenu.assign({
+                    gameState,
+                })}></${GamePauseMenu}>
+            `);
+            const gamePauseMenu = assertWrap.instanceOf(renderedElement, GamePauseMenu);
+
+            assert.isNull(
+                gamePauseMenu.shadowRoot.querySelector(
+                    testIdSelector(GamePauseMenu.testIds.restartButton),
+                ),
+            );
+
+            activateGamePauseButton({
+                gamePauseMenu,
+                testId: GamePauseMenu.testIds.dropOutButton,
+            });
+            multiplayerController.runFrame();
+
+            assert.deepEquals(
+                {
+                    menuState: gameState.menuState,
+                    sentPackets,
+                },
+                {
+                    menuState: undefined,
+                    sentPackets: [
+                        {
+                            playerPosition: LocalPlayerPosition.Two,
+                            type: MultiplayerPacketType.DespawnPlayer,
+                        },
+                    ],
                 },
             );
         } finally {

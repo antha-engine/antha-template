@@ -80,10 +80,7 @@ function createPlayerEntityStore({
         });
     }
     const state = {
-        menuState: {
-            activeMenu: undefined,
-            returnTo: [],
-        },
+        menuState: undefined,
         players: {},
         saveState: undefined,
         seededRandom: SeededRandom.fromSeed('player collision test'),
@@ -91,7 +88,8 @@ function createPlayerEntityStore({
             connectionState: emptyApiAndRoomConnectionState,
             multiplayerController: controller,
         },
-    } satisfies GameState & Pick<FullGameState, 'multiplayerP2pLockStep'>;
+    } satisfies Pick<GameState, 'menuState' | 'players' | 'saveState' | 'seededRandom'> &
+        Pick<FullGameState, 'multiplayerP2pLockStep'>;
 
     return {
         controller,

@@ -40,8 +40,11 @@ describe(GameMultiplayerRooms.tagName, () => {
             'menuState' | 'multiplayerP2pLockStep' | 'navController'
         > = {
             menuState: {
-                activeMenu: GameMenuKey.MultiplayerRooms,
-                returnTo: [GameMenuKey.Pause],
+                menuHistory: [
+                    GameMenuKey.Pause,
+                    GameMenuKey.MultiplayerRooms,
+                ],
+                openedBy: undefined,
             },
             multiplayerP2pLockStep: {
                 connectionState: emptyApiAndRoomConnectionState,
@@ -107,8 +110,11 @@ describe(GameMultiplayerRooms.tagName, () => {
             'menuState' | 'multiplayerP2pLockStep' | 'navController'
         > = {
             menuState: {
-                activeMenu: GameMenuKey.MultiplayerRooms,
-                returnTo: [GameMenuKey.Pause],
+                menuHistory: [
+                    GameMenuKey.Pause,
+                    GameMenuKey.MultiplayerRooms,
+                ],
+                openedBy: undefined,
             },
             multiplayerP2pLockStep: {
                 connectionState: emptyApiAndRoomConnectionState,

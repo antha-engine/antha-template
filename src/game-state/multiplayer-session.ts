@@ -1,4 +1,3 @@
-import {closeAnthaMenus} from '@antha/input';
 import {
     defaultMultiplayerApiOrigin,
     type MultiplayerConnectionTimeoutOptions,
@@ -36,7 +35,7 @@ export function startLocalGame(state: Partial<FullGameState>) {
     state.players = {};
     multiplayerController.startSingleplayer();
 
-    state.menuState = closeAnthaMenus();
+    state.menuState = undefined;
     getMultiplayerController(state).act({
         playerPosition: LocalPlayerPosition.One,
         type: MultiplayerPacketType.SpawnPlayer,

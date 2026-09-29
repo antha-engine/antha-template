@@ -20,6 +20,8 @@ import {type FullGameState} from './game-state.js';
 import {gameWorldSize} from './game-world.js';
 
 export enum MultiplayerPacketType {
+    /** Removes a single local player that dropped out. */
+    DespawnPlayer = 'despawn-player',
     /** Removes every player owned by a peer has left the session. */
     DespawnPlayers = 'despawn-players',
     /** Moves a single player. */
@@ -44,6 +46,10 @@ export type MultiplayerPacket =
       }
     | {
           type: MultiplayerPacketType.SpawnPlayer;
+          playerPosition: LocalPlayerPosition;
+      }
+    | {
+          type: MultiplayerPacketType.DespawnPlayer;
           playerPosition: LocalPlayerPosition;
       }
     | {
@@ -105,6 +111,19 @@ export async function loadStateSync({
 }
 
 export const multiplayerPacketHandlers = {
+    [MultiplayerPacketType.DespawnPlayer]({detail, state}) {
+        const playerId = createMultiplayerPlayerId({
+            clientId: detail.sourceClientId,
+            playerPosition: detail.packet.playerPosition,
+        });
+
+        state.players?.[playerId]?.playerEntity.immediatelyDestroy();
+        state.players = removeUndefinedValues(
+            filterObject(state.players || {}, (existingPlayerId) => {
+                return existingPlayerId !== playerId;
+            }),
+        );
+    },
     [MultiplayerPacketType.DespawnPlayers]({detail, state}) {
         getObjectTypedValues(state.players || {}).forEach((player) => {
             if (player.clientId !== detail.packet.clientId) {

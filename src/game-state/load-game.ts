@@ -8,21 +8,16 @@ import {
     createAnthaVirtualViewportMod,
     createVirtualViewportPixiOptions,
 } from '@antha/graphics-2d';
-import {
-    closeAnthaMenus,
-    createAnthaInputBindingsMod,
-    createAnthaMenuNavMod,
-    createAnthaReadRawInputMod,
-} from '@antha/input';
+import {createAnthaInputBindingsMod, createAnthaReadRawInputMod} from '@antha/input';
 import {ensureErrorAndPrependMessage, randomString, SeededRandom} from '@augment-vir/common';
 import {css} from 'element-vir';
 import {gameAudio, gameAudioFilesToLoad, GameAudioKey} from '../audio/game-audio.js';
-import {gameMenuMod, gameMenuStateMod} from '../menu/game-menu.mod.js';
+import {gameMenuMod, gameMenuNavMod} from '../menu/game-menu.mod.js';
 import {PlayerEntity} from '../player/player.entity.js';
 import {defaultBindings} from './default-bindings.js';
 import {deployEnv, DeployEnv} from './deploy-env.js';
 import {updateEntitiesMod} from './game-entity.mod.js';
-import {InputConsumer, type FullGameState} from './game-state.js';
+import {type FullGameState} from './game-state.js';
 import {gameUpdateMod} from './game-update.mod.js';
 import {gameWorldSize} from './game-world.js';
 import {multiplayerLockstepMod} from './multiplayer-lockstep.mod.js';
@@ -109,7 +104,7 @@ export async function bootstrapGame({
     state.saveState = loadedSaveState.saveState;
     state.bindingAssignments = defaultBindings;
     state.currentBackgroundAudio = gameAudio[GameAudioKey.GameMusic];
-    state.menuState = closeAnthaMenus();
+    state.menuState = undefined;
     state.players = {};
     state.seededRandom = SeededRandom.fromSeed(randomString());
 
@@ -137,19 +132,13 @@ export async function bootstrapGame({
                 deviceHandlerOptions: {
                     globalDeadZone: loadedSaveState.saveState.joystickDeadZone,
                 },
-                startRawInputConsumer: InputConsumer.Game,
             }),
             createAnthaInputBindingsMod(),
             updateEntitiesMod,
             multiplayerLockstepMod,
             gameUpdateMod,
-            gameMenuStateMod,
+            gameMenuNavMod,
             gameMenuMod,
-            createAnthaMenuNavMod({
-                allowWrapping: true,
-                alwaysRequireFocused: true,
-                blockPerpendicularNavigation: true,
-            }),
             createAnthaBackgroundAudioMod(),
         ],
     };

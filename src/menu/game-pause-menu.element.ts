@@ -1,10 +1,12 @@
-import {closeAnthaMenus, nav, pushAnthaMenuState} from '@antha/input';
+import {nav, pushAnthaMenuState} from '@antha/input';
 import {createNewRoom} from '@antha/multiplayer-core';
 import {isMultiplayerRoomConnected} from '@antha/multiplayer-p2p-lock-step';
+import {LocalPlayerPosition} from '@antha/util';
 import {randomString, type MaybePromise} from '@augment-vir/common';
 import {css, defineElement, html, nothing, testId} from 'element-vir';
 import {LoaderAnimated24Icon, noNativeSpacing, ViraIcon, viraTheme} from 'vira';
 import {GameMenuKey, type FullGameState} from '../game-state/game-state.js';
+import {MultiplayerPacketType} from '../game-state/multiplayer-packet.js';
 import {
     createMultiplayerError,
     initializeMultiplayer,
@@ -14,12 +16,16 @@ import {
 } from '../game-state/multiplayer-session.js';
 import {VirGameButton} from './vir-game-button.element.js';
 
-/** Provides paused-game actions for resuming, restarting, and multiplayer setup. */
+/**
+ * Provides paused-game actions for resuming, restarting, and multiplayer setup. Players other than
+ * player one get "Drop out" in place of "Restart".
+ */
 export const GamePauseMenu = defineElement<{
     gameState: Partial<FullGameState>;
 }>()({
     tagName: 'game-pause-menu',
     testIds: [
+        'dropOutButton',
         'hostButton',
         'joinButton',
         'leaveButton',
@@ -87,6 +93,7 @@ export const GamePauseMenu = defineElement<{
         }
 
         const isInMultiplayerRoom = isMultiplayerRoomConnected(inputs.gameState);
+        const pausedBy = inputs.gameState.menuState?.openedBy?.playerPosition;
 
         const gameButtonDefinitions: ReadonlyArray<
             Readonly<{
@@ -100,7 +107,7 @@ export const GamePauseMenu = defineElement<{
                 autoFocus: true,
                 label: 'Resume',
                 onActivate() {
-                    inputs.gameState.menuState = closeAnthaMenus();
+                    inputs.gameState.menuState = undefined;
                 },
             },
             {
@@ -146,7 +153,7 @@ export const GamePauseMenu = defineElement<{
                                       multiplayerConnectionTimeoutOptions,
                                   );
                                   startMultiplayerGame(inputs.gameState);
-                                  inputs.gameState.menuState = closeAnthaMenus();
+                                  inputs.gameState.menuState = undefined;
                               } catch (error) {
                                   updateState({
                                       multiplayerError: createMultiplayerError(error),
@@ -188,13 +195,25 @@ export const GamePauseMenu = defineElement<{
                           testId: testIds.joinButton,
                       },
                   ]),
-            {
-                label: 'Restart',
-                onActivate() {
-                    startLocalGame(inputs.gameState);
-                },
-                testId: testIds.restartButton,
-            },
+            pausedBy == undefined || pausedBy === LocalPlayerPosition.One
+                ? {
+                      label: 'Restart',
+                      onActivate() {
+                          startLocalGame(inputs.gameState);
+                      },
+                      testId: testIds.restartButton,
+                  }
+                : {
+                      label: 'Drop out',
+                      onActivate() {
+                          inputs.gameState.multiplayerP2pLockStep?.multiplayerController.act({
+                              playerPosition: pausedBy,
+                              type: MultiplayerPacketType.DespawnPlayer,
+                          });
+                          inputs.gameState.menuState = undefined;
+                      },
+                      testId: testIds.dropOutButton,
+                  },
         ];
 
         return html`

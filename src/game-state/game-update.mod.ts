@@ -3,7 +3,7 @@ import {markBindingActed, MenuNavBinding} from '@antha/input';
 import {createMultiplayerPlayerId, type ClientId} from '@antha/multiplayer-core';
 import {type P2pLockStepMultiplayerController} from '@antha/multiplayer-p2p-lock-step';
 import {LocalPlayerPosition} from '@antha/util';
-import {getEnumValues} from '@augment-vir/common';
+import {arrayToObject, getEnumValues} from '@augment-vir/common';
 import {moveLocalPlayers} from '../player/player-movement.js';
 import {type FullGameState} from './game-state.js';
 import {MultiplayerPacketType, type MultiplayerPacket} from './multiplayer-packet.js';
@@ -52,6 +52,30 @@ function addNewLocalPlayers({
     }
 }
 
+/** Player one can always use menus. Other local players can use them once they've joined. */
+function getAllowedPlayerMenuNavigation({
+    localClientId,
+    state,
+}: Readonly<{
+    localClientId: ClientId | undefined;
+    state: Partial<FullGameState>;
+}>) {
+    return arrayToObject(getEnumValues(LocalPlayerPosition), (playerPosition) => {
+        return {
+            key: playerPosition,
+            value:
+                playerPosition === LocalPlayerPosition.One ||
+                (!!localClientId &&
+                    !!state.players?.[
+                        createMultiplayerPlayerId({
+                            clientId: localClientId,
+                            playerPosition,
+                        })
+                    ]),
+        };
+    });
+}
+
 /** Coordinates game state and local players. */
 export const gameUpdateMod = defineAnthaMod<
     FullGameState & {
@@ -70,6 +94,11 @@ export const gameUpdateMod = defineAnthaMod<
                 master: state.saveState.masterVolume,
             };
         }
+
+        state.allowedPlayerMenuNavigation = getAllowedPlayerMenuNavigation({
+            localClientId: state.multiplayerP2pLockStep?.multiplayerController.getClientId(),
+            state,
+        });
 
         if (!state.multiplayerP2pLockStep || !state.pixi?.pixiApplication?.screen) {
             return;

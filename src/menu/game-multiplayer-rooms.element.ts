@@ -1,4 +1,4 @@
-import {closeAnthaMenus, nav, popAnthaMenuState} from '@antha/input';
+import {nav, popAnthaMenuState} from '@antha/input';
 import {type MultiplayerClientRooms} from '@antha/multiplayer-core';
 import {getObjectTypedValues, type EmptyFunction} from '@augment-vir/common';
 import {css, defineElement, html, nothing, testId} from 'element-vir';
@@ -169,7 +169,7 @@ export const GameMultiplayerRooms = defineElement<{
                                             multiplayerConnectionTimeoutOptions,
                                         );
                                         startMultiplayerGame(inputs.gameState);
-                                        inputs.gameState.menuState = closeAnthaMenus();
+                                        inputs.gameState.menuState = undefined;
                                     } catch (error) {
                                         updateState({
                                             joiningRoom: undefined,

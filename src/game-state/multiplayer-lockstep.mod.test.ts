@@ -63,10 +63,7 @@ async function createMultiplayerSimulation(
     const engine = new AnthaEngine<FullGameState>({
         hostElement: document.createElement('div'),
         initState: {
-            menuState: {
-                activeMenu: undefined,
-                returnTo: [],
-            },
+            menuState: undefined,
             multiplayerP2pLockStep: {
                 connectionState: emptyApiAndRoomConnectionState,
                 multiplayerController: controller,
@@ -163,6 +160,47 @@ describe(multiplayerLockstepMod.modName, () => {
                     clientId: lostClientId,
                     type: MultiplayerPacketType.DespawnPlayers,
                 },
+            ]);
+        } finally {
+            simulation.controller.destroy();
+            simulation.entityStore.destroy();
+        }
+    });
+
+    it('drops out only the requested local player', async () => {
+        const simulation = await createMultiplayerSimulation();
+        const secondBluePlayerId = createMultiplayerPlayerId({
+            clientId: applyBrand<ClientId>('c_blue'),
+            playerPosition: LocalPlayerPosition.Two,
+        });
+
+        try {
+            simulation.state.players = {
+                ...simulation.state.players,
+                [secondBluePlayerId]: {
+                    clientId: applyBrand<ClientId>('c_blue'),
+                    playerEntity: await simulation.entityStore.addEntity(PlayerEntity, {
+                        playerId: secondBluePlayerId,
+                        x: 500,
+                        y: 500,
+                    }),
+                    playerPosition: LocalPlayerPosition.Two,
+                },
+            };
+
+            simulation.engine.dispatch(
+                createMultiplayerFrameEvent([
+                    {
+                        playerPosition: LocalPlayerPosition.Two,
+                        type: MultiplayerPacketType.DespawnPlayer,
+                    },
+                ]),
+            );
+            await simulation.engine.runSingleTick();
+
+            assert.deepEquals(Object.keys(simulation.state.players), [
+                playerIds.blue,
+                playerIds.green,
             ]);
         } finally {
             simulation.controller.destroy();
