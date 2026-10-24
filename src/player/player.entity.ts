@@ -12,7 +12,7 @@ import {
     multiplayerPlayerIdShape,
     type MultiplayerPlayerId,
 } from '@antha/multiplayer-core';
-import {LocalPlayerPosition, selectItemByHash} from '@antha/util';
+import {LocalPlayerPosition, selectItemByHash, StableMath} from '@antha/util';
 import {assertWrap} from '@augment-vir/assert';
 import {clamp, getObjectTypedValues, type AtLeastTuple, type Coords} from '@augment-vir/common';
 import {Circle} from 'detect-collisions';
@@ -99,7 +99,7 @@ function createPlayerCollisionOverlapVector({
     }
 
     return {
-        x: firstPlayerId.localeCompare(secondPlayerId) < 0 ? collision.overlap : -collision.overlap,
+        x: firstPlayerId < secondPlayerId ? collision.overlap : -collision.overlap,
         y: 0,
     };
 }
@@ -109,7 +109,10 @@ function createPlayerCollisionBounceVector({
 }: Readonly<{
     overlapVector: Coords;
 }>) {
-    const overlapMagnitude = Math.hypot(overlapVector.x, overlapVector.y);
+    const overlapMagnitude = StableMath.hypot([
+        overlapVector.x,
+        overlapVector.y,
+    ]);
 
     return {
         x: (-overlapVector.x / overlapMagnitude) * playerCollisionBounceSpeedPxPerMs,
@@ -167,7 +170,7 @@ export class PlayerEntity extends defineEntity({
     public override update({msSinceLastExecute}: Readonly<ModExecuteParams>) {
         this.bounceVectors = this.bounceVectors.flatMap((bounceVector) => {
             const bounceElapsedMs = Math.min(msSinceLastExecute, bounceVector.remainingDurationMs);
-            const decayMultiplier = Math.exp(-bounceElapsedMs / playerCollisionBounceDecayMs);
+            const decayMultiplier = StableMath.exp(-bounceElapsedMs / playerCollisionBounceDecayMs);
             const bounceDistanceMultiplier = playerCollisionBounceDecayMs * (1 - decayMultiplier);
             const remainingDurationMs = bounceVector.remainingDurationMs - bounceElapsedMs;
 
@@ -231,7 +234,7 @@ export class PlayerEntity extends defineEntity({
             },
         ];
 
-        if (this.params.playerId.localeCompare(otherEntity.params.playerId) < 0) {
+        if (this.params.playerId < otherEntity.params.playerId) {
             const collisionAudio = assertWrap.isDefined(
                 playerCollisionAudio[
                     Math.floor(this.state.seededRandom.next() * playerCollisionAudio.length)

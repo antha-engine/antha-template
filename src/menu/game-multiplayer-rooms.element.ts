@@ -2,7 +2,7 @@ import {nav, popAnthaMenuState} from '@antha/input';
 import {type MultiplayerClientRooms} from '@antha/multiplayer-core';
 import {getObjectTypedValues, type EmptyFunction} from '@augment-vir/common';
 import {css, defineElement, html, nothing, testId} from 'element-vir';
-import {LoaderAnimated24Icon, lucideIcons, ViraIcon} from 'vira';
+import {LoaderAnimated24Icon, LucideLockIcon, ViraIcon} from 'vira';
 import {type FullGameState} from '../game-state/game-state.js';
 import {
     createMultiplayerError,
@@ -132,7 +132,7 @@ export const GameMultiplayerRooms = defineElement<{
             const lockedTemplate = room.hasRoomPassword
                 ? html`
                       <${ViraIcon.assign({
-                          icon: lucideIcons.Lock,
+                          icon: LucideLockIcon,
                       })}></${ViraIcon}>
                   `
                 : nothing;

@@ -84,9 +84,6 @@ export async function initializeMultiplayer(state: Partial<FullGameState>) {
         await multiplayerController.initMultiplayer({
             backendOrigin: multiplayerBackendOriginByDeployEnv[deployEnv],
             portScanOptions: false,
-            stunServerUrls: [
-                'stun.cloudflare.com:3478',
-            ],
             roomUpdateInterval: {
                 seconds: 1,
             },
