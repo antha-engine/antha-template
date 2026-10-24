@@ -71,7 +71,10 @@ export function createStateSync(state: Partial<FullGameState>): MultiplayerState
     }
 }
 
-/** Replaces a joining (or resyncing) peer's entities and random state with the host's. */
+/**
+ * Replaces a peer's entities and random state with the host's. Every peer runs this, the host
+ * included, so each one rebuilds its entities the same way.
+ */
 export async function loadStateSync({
     state,
     stateSync,
